@@ -1,0 +1,55 @@
+{
+  "name": "@dnslink/js",
+  "version": "0.0.1",
+  "description": "The reference implementation for DNSLink in JavaScript. Tested in Node.js and in the Browser.",
+  "main": "index.js",
+  "types": "./types",
+  "scripts": {
+    "lint": "standard *.js bin/* && dtslint --localTs node_modules/typescript/lib types",
+    "test": "npm run test-doh && npm run test-udp",
+    "test-doh": "dnslink-test -e warning -e eth -- node test/integration-doh.js",
+    "test-udp": "dnslink-test -e warning -e eth -- node test/integration-udp.js"
+  },
+  "standard": {
+    "ignore": "*.ts",
+    "include": "bin/dnslink"
+  },
+  "bin": {
+    "dnslink": "bin/dnslink",
+    "dnslink-js": "bin/dnslink-js"
+  },
+  "browser": {
+    "./query-txt.node.js": "./query-txt.browser.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dnslink-std/js.git"
+  },
+  "keywords": [
+    "dnslink",
+    "decentralized",
+    "dns",
+    "ipfs",
+    "dweb"
+  ],
+  "author": "Martin Heidegger <martin.heidegger@gmail.com>",
+  "license": "MIT or Apache",
+  "bugs": {
+    "url": "https://github.com/dnslink-std/js/issues"
+  },
+  "homepage": "https://github.com/dnslink-std/js#readme",
+  "dependencies": {
+    "@consento/promise": "^1.0.7",
+    "abort-controller": "^3.0.0",
+    "array-shuffle": "^2.0.0",
+    "doh-query": "^0.6.1"
+  },
+  "devDependencies": {
+    "@dnslink/test": "^0.2.0",
+    "@types/node": "^15.12.2",
+    "dtslint": "^4.1.0",
+    "fresh-tape": "^5.2.4",
+    "standard": "^16.0.3",
+    "typescript": "^4.3.2"
+  }
+}

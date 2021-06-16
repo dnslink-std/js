@@ -1,0 +1,4 @@
+#!/usr/bin/env node
+// DNSlink-js exists to make sure that other implementations (e.g. go) may be used the command
+// line alias "dnslink" in a command line, while dnslink-js remains available.
+require('./cli.js')('dnslink-js')
