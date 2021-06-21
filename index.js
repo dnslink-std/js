@@ -130,9 +130,6 @@ async function resolveDnslink (domain, options) {
 }
 
 function validateDomain (domain) {
-  if (domain.endsWith('.eth')) {
-    domain = `${domain}.link`
-  }
   if (domain.startsWith(DNS_PREFIX)) {
     domain = domain.substr(DNS_PREFIX.length)
     if (domain.startsWith(DNS_PREFIX)) {
