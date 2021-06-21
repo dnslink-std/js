@@ -129,10 +129,6 @@ async function resolveDnslink (domain, options) {
   return { found, warnings }
 }
 
-/**
- * @param {string} domain
- * @returns {({ error: { code: string, domain: string } } | { domain: string })}
- */
 function validateDomain (domain) {
   if (domain.endsWith('.eth')) {
     domain = `${domain}.link`
