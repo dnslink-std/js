@@ -10,6 +10,7 @@ dnslinkN(process.argv[2], {
     for (const [key, value] of Object.entries(result.found)) {
       result.found[key] = value
     }
+    delete result.domain
     console.log(JSON.stringify(result))
   },
   err => console.log(JSON.stringify({ error: err.stack }))

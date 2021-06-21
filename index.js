@@ -3,7 +3,10 @@ const { bubbleAbort } = require('@consento/promise/bubbleAbort')
 const DNS_PREFIX = '_dnslink.'
 
 function dnslink (domain, options) {
-  return wrapTimeout(signal => dnslinkN(domain, { ...options, signal }, []), options)
+  return wrapTimeout(signal => dnslinkN(domain, { ...options, signal }, []), options).then(result => {
+    result.domain = domain
+    return result
+  })
 }
 
 dnslink.WarningCode = {

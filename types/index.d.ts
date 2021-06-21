@@ -52,6 +52,7 @@ declare namespace dnslink {
   }
   type Warning = Conflict | InvalidEntry | EndlessRedirects | InvalidRedirect | TooManyRedirects | UnusedEntry | RecursiveDNSlinkPrefix;
   interface Result {
+    domain: string;
     found: { [key: string]: string; };
     warnings: Warning[];
   }
