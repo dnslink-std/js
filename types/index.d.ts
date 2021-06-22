@@ -6,6 +6,8 @@ import { TimeoutOptions } from '@consento/promise';
 
 declare namespace dnslink {
   enum WarningCode {
+    redirect = 'REDIRECT',
+    resolve = 'RESOLVE',
     conflictEntry = 'CONFLICT_ENTRY',
     invalidEntry = 'INVALID_ENTRY',
     endlessRedirect = 'ENDLESS_REDIRECT',
@@ -19,40 +21,44 @@ declare namespace dnslink {
     keyMissing = 'KEY_MISSING',
     noValue = 'NO_VALUE',
   }
-  interface BaseWarning {
+  interface DomainEntry {
     domain: string;
+    pathname?: string;
+    search?: { [key: string]: string[]  };
   }
-  interface Conflict extends BaseWarning {
+  interface Resolve extends DomainEntry {
+    code: WarningCode.resolve;
+  }
+  interface Redirect extends DomainEntry {
+    code: WarningCode.redirect;
+  }
+  interface EndlessRedirects extends DomainEntry {
+    code: WarningCode.endlessRedirect;
+  }
+  interface InvalidRedirect extends DomainEntry {
+    code: WarningCode.invalidRedirect;
+  }
+  interface TooManyRedirects extends DomainEntry {
+    code: WarningCode.tooManyRedirects;
+  }
+  interface RecursiveDNSlinkPrefix extends DomainEntry  {
+    code: WarningCode.recursivePrefix;
+  }
+  interface Conflict {
     code: WarningCode.conflictEntry;
     entry: string;
   }
-  interface InvalidEntry extends BaseWarning {
+  interface InvalidEntry {
     code: WarningCode.invalidEntry;
     entry: string;
     reason: InvalidityReason;
   }
-  interface EndlessRedirects extends BaseWarning {
-    code: WarningCode.endlessRedirect;
-    chain: string[];
-  }
-  interface InvalidRedirect extends BaseWarning {
-    code: WarningCode.invalidRedirect;
-    chain: string[];
-  }
-  interface TooManyRedirects extends BaseWarning {
-    code: WarningCode.tooManyRedirects;
-    chain: string[];
-  }
-  interface UnusedEntry extends BaseWarning {
+  interface UnusedEntry {
     code: WarningCode.unusedEntry;
     entry: string;
   }
-  interface RecursiveDNSlinkPrefix extends BaseWarning {
-    code: WarningCode.recursivePrefix;
-  }
-  type Warning = Conflict | InvalidEntry | EndlessRedirects | InvalidRedirect | TooManyRedirects | UnusedEntry | RecursiveDNSlinkPrefix;
+  type Warning = Resolve | Redirect | Conflict | InvalidEntry | EndlessRedirects | InvalidRedirect | TooManyRedirects | UnusedEntry | RecursiveDNSlinkPrefix;
   interface Result {
-    domain: string;
     found: { [key: string]: string; };
     warnings: Warning[];
   }

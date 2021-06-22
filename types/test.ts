@@ -10,7 +10,6 @@ result.then(({ found, warnings }) => {
   const { ipfs, other }: { ipfs?: string, other?: string } = found;
   for (const warning of warnings) {
     const code: WarningCode = warning.code;
-    const domain: string = warning.domain;
     /* tslint:disable:prefer-switch */
     if (
       warning.code === WarningCode.conflictEntry ||
@@ -24,7 +23,9 @@ result.then(({ found, warnings }) => {
       warning.code === WarningCode.invalidRedirect ||
       warning.code === WarningCode.tooManyRedirects
     ) {
-      const chain: string[] = warning.chain;
+      const domain: string = warning.domain;
+      const pathname: string | undefined = warning.pathname;
+      const search: { [key: string]: string[] } | undefined = warning.search
     }
     if (
       warning.code === WarningCode.recursivePrefix

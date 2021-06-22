@@ -4,6 +4,22 @@ const dnslink = require('../index')
 const { version, homepage } = require('../package.json')
 
 const json = input => JSON.stringify(input)
+const renderSearch = search => {
+  if (!search) {
+    return null
+  }
+  const entries = Object.entries(search)
+  if (entries.length === 0) {
+    return ''
+  }
+  return `?${entries
+    .map(([key, values]) => values
+      .map(value => `${encodeURIComponent(key)}=${encodeURIComponent(value)}`)
+      .join('&')
+    )
+    .join('&')}`
+}
+
 const outputs = {
   json: class JSON {
     constructor (options) {
@@ -19,7 +35,7 @@ const outputs = {
       }
     }
 
-    write (result) {
+    write (domain, result) {
       const { debug, out, err, domains } = this.options
       if (this.firstOut) {
         this.firstOut = false
@@ -27,19 +43,22 @@ const outputs = {
         out.write('\n,')
       }
       const outLine = domains.length > 1
-        ? Object.assign({ domain: result.domain }, result.found)
+        ? Object.assign({ domain }, result.found)
         : result.found
       out.write(json(outLine))
       if (debug) {
-        if (this.firstErr) {
-          this.firstErr = false
-        } else {
-          err.write('\n,')
-        }
-        const errLine = domains.length > 1
-          ? Object.assign({ domain: result.domain }, result.warnings)
+        const errLines = domains.length > 1
+          ? Object.assign({ domain }, result.warnings)
           : result.warnings
-        err.write(json(errLine))
+        for (const errLine of errLines) {
+          let prefix = ''
+          if (this.firstErr) {
+            this.firstErr = false
+          } else {
+            prefix = '\n,'
+          }
+          err.write(prefix + json(errLine))
+        }
       }
     }
 
@@ -58,7 +77,7 @@ const outputs = {
       this.options = options
     }
 
-    write ({ domain, found, warnings }) {
+    write (domain, { found, warnings }) {
       const { debug, out, err, key: searchKey, domains } = this.options
       const prefix = domains.length > 1 ? `${domain}: ` : ''
       for (const key in found) {
@@ -73,7 +92,7 @@ const outputs = {
       }
       if (debug) {
         for (const warning of warnings) {
-          err.write(`[${warning.code}] domain=${warning.domain} ${warning.entry ? `error=${warning.entry}` : ''} ${warning.chain ? `chain=${warning.chain}` : ''} ${warning.reason ? `(${warning.reason})` : ''}\n`)
+          err.write(`[${warning.code}] domain=${warning.domain} ${warning.pathname ? `pathname=${warning.pathname}` : '' } ${warning.search ? `search=${renderSearch(warning.search)}` : '' } ${warning.entry ? `error=${warning.entry}` : ''} ${warning.reason ? `(${warning.reason})` : ''}\n`)
         }
       }
     }
@@ -87,7 +106,7 @@ const outputs = {
       this.firstErr = true
     }
 
-    write ({ domain, found, warnings }) {
+    write (domain, { found, warnings }) {
       const { debug, out, err, key: searchKey } = this.options
       if (this.firstOut) {
         this.firstOut = false
@@ -104,10 +123,10 @@ const outputs = {
           if (this.firstErr) {
             this.firstErr = false
             if (debug) {
-              err.write('domain,code,entry,chain,reason\n')
+              err.write('domain,pathname,search,code,entry,reason\n')
             }
           }
-          out.write(`${csv(warning.domain)},${csv(warning.code)},${csv(warning.entry)},${csv(warning.chain)},${csv(warning.reason)}\n`)
+          out.write(`${csv(warning.domain)},${csv(warning.pathname)},${csv(renderSearch(warning.search))},${csv(warning.code)},${csv(warning.entry)},${csv(warning.reason)}\n`)
         }
       }
     }
@@ -149,7 +168,7 @@ module.exports = (command) => {
         err: process.stderr
       })
       await Promise.all(domains.map(async (domain) => {
-        output.write(await dnslink(domain, {
+        output.write(domain, await dnslink(domain, {
           signal,
           doh: options.doh,
           dns: options.dns

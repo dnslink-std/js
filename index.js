@@ -3,13 +3,18 @@ const { bubbleAbort } = require('@consento/promise/bubbleAbort')
 const DNS_PREFIX = '_dnslink.'
 
 function dnslink (domain, options) {
-  return wrapTimeout(signal => dnslinkN(domain, { ...options, signal }, []), options).then(result => {
-    result.domain = domain
-    return result
-  })
+  return wrapTimeout(signal => {
+    const validated = validateDomain(domain)
+    if (validated.error) {
+      return { found: {}, warnings: [validated.error] }
+    }
+    return dnslinkN(validated.redirect, { ...options, signal }, [])
+  }, options)
 }
 
 dnslink.WarningCode = {
+  redirect: 'REDIRECT',
+  resolve: 'RESOLVE',
   conflictEntry: 'CONFLICT_ENTRY',
   invalidEntry: 'INVALID_ENTRY',
   endlessRedirect: 'ENDLESS_REDIRECT',
@@ -27,74 +32,69 @@ dnslink.InvalidityReason = {
 
 module.exports = dnslink
 
-async function dnslinkN (domain, options, chain) {
-  bubbleAbort(options.signal)
-  const validated = validateDomain(domain)
-  if (validated.error) {
-    return { found: {}, warnings: [validated.error] }
+function shouldFallbackToDomain (result) {
+  // Any warnings given already prevents the fallback from _dnslink.<domain> to <domain
+  if (result.warnings.length > 0) {
+    return false
   }
-  const result = await dnslink1(validated.domain, options)
+  /* eslint-disable-next-line no-unreachable-loop */
+  for (const _key in result.found) {
+    // Any result will also prevent the fallback
+    return false
+  }
+  return true
+}
+
+async function dnslinkN (source, options, chain) {
+  const { domain, pathname, search } = source
+  let result = await resolveDnslink(domain, options)
   bubbleAbort(options.signal)
-  const redirect = result.found.dns
+  let redirect
+  if (result.found.dns) {
+    const validated = validateDomain(result.found.dns.value)
+    if (validated.error) {
+      result.warnings.push(validated.error)
+    } else {
+      redirect = validated.redirect
+    }
+  } else if (domain.startsWith(DNS_PREFIX) && shouldFallbackToDomain(result)) {
+    redirect = {
+      domain: domain.substr(DNS_PREFIX.length)
+    }
+  }
+  const resolve = { code: 'RESOLVE', ...source }
   if (redirect) {
+    const warnings = extractRedirectWarnings(result)
+    if (chain.includes(redirect.domain)) {
+      warnings.push(resolve)
+      return { found: {}, warnings: [...warnings, { code: 'ENDLESS_REDIRECT', ...redirect }] }
+    }
     chain.push(domain)
-    return await followRedirect(redirect.value, options, chain, extractRedirectWarnings(result, domain))
+    if (chain.length === 32) {
+      warnings.push(resolve)
+      return { found: {}, warnings: [...warnings, { code: 'TOO_MANY_REDIRECTS', ...redirect }] }
+    }
+    warnings.push({ code: 'REDIRECT', ...source })
+    result = await dnslinkN(redirect, options, chain)
+    result.warnings = warnings.concat(result.warnings)
+    return result
   }
   const { found: foundRaw, warnings } = result
   const found = {}
   for (const key in foundRaw) {
     found[key] = foundRaw[key].value
   }
+  warnings.push(resolve)
   return { found, warnings }
 }
 
-async function followRedirect (redirect, options, chain, warnings) {
-  const cleanDns = validateDomain(redirect)
-  if (cleanDns.error) {
-    return { found: {}, warnings: [...warnings, cleanDns.error] }
-  }
-  const { domain } = cleanDns
-  if (domain.includes('/')) {
-    return { found: {}, warnings: [...warnings, { code: 'INVALID_REDIRECT', chain, domain }] }
-  }
-  if (chain.includes(domain)) {
-    chain.push(redirect)
-    return { found: {}, warnings: [...warnings, { code: 'ENDLESS_REDIRECT', chain }] }
-  }
-  if (chain.length === 32) {
-    chain.push(redirect)
-    return { found: {}, warnings: [...warnings, { code: 'TOO_MANY_REDIRECTS', chain }] }
-  }
-  const result = await dnslinkN(domain, options, chain)
-  result.warnings = warnings.concat(result.warnings)
-  return result
-}
-
-function extractRedirectWarnings (result, domain) {
+function extractRedirectWarnings (result) {
   const { warnings, found } = result
   for (const key in found) {
     if (key === 'dns') continue
-    warnings.push({ code: 'UNUSED_ENTRY', entry: found[key].entry, domain })
+    warnings.push({ code: 'UNUSED_ENTRY', entry: found[key].entry })
   }
   return warnings
-}
-
-async function dnslink1 (domain, options) {
-  const result = await resolveDnslink(`${DNS_PREFIX}${domain}`, options)
-  const { warnings } = result
-  for (const error of warnings) {
-    error.domain = domain
-  }
-  if (result.warnings.length > 0) {
-    // Any warnings given already prevents the fallback
-    return result
-  }
-  /* eslint-disable-next-line no-unreachable-loop */
-  for (const _key in result.found) {
-    return result
-  }
-  bubbleAbort(options.signal)
-  return await resolveDnslink(domain, options)
 }
 
 const PREFIX = 'dnslink='
@@ -111,35 +111,63 @@ async function resolveDnslink (domain, options) {
     }
     const validated = validate(entry)
     if (validated.error !== undefined) {
-      warnings.push({ code: 'INVALID_ENTRY', entry, domain, reason: validated.error })
+      warnings.push({ code: 'INVALID_ENTRY', entry, reason: validated.error })
       continue
     }
     const { key, value } = validated
     const prev = found[key]
     if (!prev || prev.value > value) {
       if (prev) {
-        warnings.push({ code: 'CONFLICT_ENTRY', entry: prev.entry, domain })
+        warnings.push({ code: 'CONFLICT_ENTRY', entry: prev.entry })
       }
       found[key] = {
         value,
         entry
       }
     } else {
-      warnings.push({ code: 'CONFLICT_ENTRY', entry, domain })
+      warnings.push({ code: 'CONFLICT_ENTRY', entry })
     }
   }
 
   return { found, warnings }
 }
 
-function validateDomain (domain) {
+function validateDomain (input) {
+  let { domain, pathname, search } = relevantURLParts(input)
   if (domain.startsWith(DNS_PREFIX)) {
     domain = domain.substr(DNS_PREFIX.length)
     if (domain.startsWith(DNS_PREFIX)) {
-      return { error: { code: 'RECURSIVE_DNSLINK_PREFIX', domain: `${DNS_PREFIX}${domain}` } }
+      return { error: { code: 'RECURSIVE_DNSLINK_PREFIX', domain: `${DNS_PREFIX}${domain}`, pathname, search } }
     }
   }
-  return { domain }
+  if (domain.includes(' ')) {
+    return { error: { code: 'INVALID_REDIRECT', domain, pathname, search } }
+  }
+  return { redirect: { domain: `${DNS_PREFIX}${domain}`, pathname, search } }
+}
+
+function relevantURLParts (input) {
+  const url = new URL(input, 'xo://')
+  let domain
+  let pathname
+  if (url.hostname) {
+    domain = url.hostname
+    if (url.pathname) {
+      pathname = url.pathname
+    }
+  } else if (url.pathname) {
+    const parts = /^\/([^/]*)(\/.*)?/.exec(url.pathname)
+    domain = parts[1]
+    pathname = parts[2]
+  }
+  let search
+  for (const key of url.searchParams.keys()) {
+    if (search === undefined) {
+      search = {}
+    }
+    search[key] = url.searchParams.getAll(key)
+  }
+  return { search, domain, pathname }
 }
 
 function validate (entry) {
