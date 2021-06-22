@@ -19,6 +19,7 @@ const renderSearch = search => {
     )
     .join('&')}`
 }
+const renderPath = part => `${part.pathname || ''}${renderSearch(part.search) || ''}`
 
 const outputs = {
   json: class JSON {
@@ -35,7 +36,7 @@ const outputs = {
       }
     }
 
-    write (domain, result) {
+    write (lookup, result) {
       const { debug, out, err, domains } = this.options
       if (this.firstOut) {
         this.firstOut = false
@@ -43,20 +44,21 @@ const outputs = {
         out.write('\n,')
       }
       const outLine = domains.length > 1
-        ? Object.assign({ domain }, result.found)
-        : result.found
+        ? Object.assign({ lookup }, result)
+        : Object.assign({}, result)
+      delete outLine.log
       out.write(json(outLine))
       if (debug) {
-        const errLines = domains.length > 1
-          ? Object.assign({ domain }, result.warnings)
-          : result.warnings
-        for (const errLine of errLines) {
+        for (const statement of result.log) {
           let prefix = ''
           if (this.firstErr) {
             this.firstErr = false
           } else {
             prefix = '\n,'
           }
+          const errLine = domains.length > 1
+            ? Object.assign({ lookup }, statement)
+            : statement
           err.write(prefix + json(errLine))
         }
       }
@@ -77,22 +79,26 @@ const outputs = {
       this.options = options
     }
 
-    write (domain, { found, warnings }) {
+    write (domain, { links, log, path }) {
       const { debug, out, err, key: searchKey, domains } = this.options
       const prefix = domains.length > 1 ? `${domain}: ` : ''
-      for (const key in found) {
+      for (const key in links) {
+        let value = links[key]
+        for (const part of path) {
+          value += ` [${renderPath(part)}]`
+        }
         if (searchKey) {
           if (key !== searchKey) {
             continue
           }
-          out.write(`${prefix}${found[key]}\n`)
+          out.write(`${prefix}${value}\n`)
         } else {
-          out.write(`${prefix}/${key}/${found[key]}\n`)
+          out.write(`${prefix}/${key}/${value}\n`)
         }
       }
       if (debug) {
-        for (const warning of warnings) {
-          err.write(`[${warning.code}] domain=${warning.domain} ${warning.pathname ? `pathname=${warning.pathname}` : '' } ${warning.search ? `search=${renderSearch(warning.search)}` : '' } ${warning.entry ? `error=${warning.entry}` : ''} ${warning.reason ? `(${warning.reason})` : ''}\n`)
+        for (const logEntry of log) {
+          err.write(`[${logEntry.code}] domain=${logEntry.domain} ${logEntry.pathname ? `pathname=${logEntry.pathname}` : ''} ${logEntry.search ? `search=${renderSearch(logEntry.search)}` : ''} ${logEntry.entry ? `error=${logEntry.entry}` : ''} ${logEntry.reason ? `(${logEntry.reason})` : ''}\n`)
         }
       }
     }
@@ -106,27 +112,28 @@ const outputs = {
       this.firstErr = true
     }
 
-    write (domain, { found, warnings }) {
+    write (lookup, { links, log, path }) {
       const { debug, out, err, key: searchKey } = this.options
       if (this.firstOut) {
         this.firstOut = false
-        out.write('domain,key,value\n')
+        out.write('lookup,key,value,path\n')
       }
-      for (const key in found) {
+
+      for (const key in links) {
         if (searchKey && key !== searchKey) {
           continue
         }
-        out.write(`${csv(domain)},${csv(key)},${csv(found[key])}\n`)
+        out.write(`${csv(lookup)},${csv(key)},${csv(links[key])},${csv(path.map(renderPath).join(' → '))}\n`)
       }
       if (debug) {
-        for (const warning of warnings) {
+        for (const logEntry of log) {
           if (this.firstErr) {
             this.firstErr = false
             if (debug) {
               err.write('domain,pathname,search,code,entry,reason\n')
             }
           }
-          out.write(`${csv(warning.domain)},${csv(warning.pathname)},${csv(renderSearch(warning.search))},${csv(warning.code)},${csv(warning.entry)},${csv(warning.reason)}\n`)
+          err.write(`${csv(logEntry.domain)},${csv(logEntry.pathname)},${csv(renderSearch(logEntry.search))},${csv(logEntry.code)},${csv(logEntry.entry)},${csv(logEntry.reason)}\n`)
         }
       }
     }
@@ -210,23 +217,21 @@ EXAMPLE
 
     # Receive all dnslink entries for multiple domains as csv
     > ${command} -f=csv dnslink.io ipfs.io
-    domain,key,value
-    "dnslink.io","ipfs","QmTgQDr3xNgKBVDVJtyGhopHoxW4EVgpkfbwE4qckxGdyo"
-    "ipfs.io","ipns","website.ipfs.io"
+    lookup,key,value,path
+    "dnslink.io","ipfs","QmTgQDr3xNgKBVDVJtyGhopHoxW4EVgpkfbwE4qckxGdyo",
+    "ipfs.io","ipns","website.ipfs.io",
 
     # Receive ipfs entries for multiple domains as json
     > ${command} -f=json -k=ipfs dnslink.io website.ipfs.io
     [
-    {"domain":"website.ipfs.io","ipfs":"bafybeiagozluzfopjadeigrjlsmktseozde2xc
-    5prvighob7452imnk76a"}
-    ,{"domain":"dnslink.io","ipfs":"QmTgQDr3xNgKBVDVJtyGhopHoxW4EVgpkfbwE4qckxG
-    dyo"}
+    {"lookup":"website.ipfs.io","links":{"ipfs":"bafybeiagozluzfopjadeigrjlsmktseozde2xc5prvighob7452imnk76a"},"path":[]}
+    ,{"lookup":"dnslink.io","links":{"ipfs":"QmTgQDr3xNgKBVDVJtyGhopHoxW4EVgpkfbwE4qckxGdyo"},"path":[]}
     ]
 
-    # Receive both the result and warnings and write the output to files
+    # Receive both the result and log and write the output to files
     > ${command} -f=csv -d dnslink.io \\
         >dnslink-io.csv \\
-        2>dnslink-io_warnings.csv
+        2>dnslink-io.log.csv
 
 OPTIONS
     --help, -h        Show this help.
@@ -240,7 +245,7 @@ OPTIONS
                       the doh-query implementation[1]. You can specify a server
                       either by the  doh-query name (e.g. cloudflare) or as an
                       url: https://cloudflare-dns.com:443/dns-query
-    --debug, -d       Render warnings to stderr in the specified format.
+    --debug, -d       Render log output to stderr in the specified format.
     --key, -k         Only render one particular dnslink key.
 
     [1]: https://github.com/martinheidegger/doh-query/blob/main/endpoints.md
@@ -285,7 +290,7 @@ function getOptions (args) {
 }
 
 function csv (entry) {
-  if (entry === null || entry === undefined) {
+  if (entry === null || entry === undefined || entry === '') {
     return ''
   }
   if (Array.isArray(entry)) {

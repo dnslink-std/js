@@ -1,39 +1,39 @@
 import dnslink = require('@dnslink/js');
-import { Options, WarningCode, InvalidityReason } from '@dnslink/js';
+import { Options, LogCode, InvalidityReason } from '@dnslink/js';
 import { AbortController } from '@consento/promise';
 import { Resolver } from 'dns';
 
 const c = new AbortController();
 
 const result = dnslink('some.domain');
-result.then(({ found, warnings }) => {
-  const { ipfs, other }: { ipfs?: string, other?: string } = found;
-  for (const warning of warnings) {
-    const code: WarningCode = warning.code;
+result.then(({ links, log }) => {
+  const { ipfs, other }: { ipfs?: string, other?: string } = links;
+  for (const logEntry of log) {
+    const code: LogCode = logEntry.code;
     /* tslint:disable:prefer-switch */
     if (
-      warning.code === WarningCode.conflictEntry ||
-      warning.code === WarningCode.invalidEntry ||
-      warning.code === WarningCode.unusedEntry
+      logEntry.code === LogCode.conflictEntry ||
+      logEntry.code === LogCode.invalidEntry ||
+      logEntry.code === LogCode.unusedEntry
     ) {
-      const entry: string = warning.entry;
+      const entry: string = logEntry.entry;
     }
     if (
-      warning.code === WarningCode.endlessRedirect ||
-      warning.code === WarningCode.invalidRedirect ||
-      warning.code === WarningCode.tooManyRedirects
+      logEntry.code === LogCode.endlessRedirect ||
+      logEntry.code === LogCode.invalidRedirect ||
+      logEntry.code === LogCode.tooManyRedirects
     ) {
-      const domain: string = warning.domain;
-      const pathname: string | undefined = warning.pathname;
-      const search: { [key: string]: string[] } | undefined = warning.search
+      const domain: string = logEntry.domain;
+      const pathname: string | undefined = logEntry.pathname;
+      const search: { [key: string]: string[] } | undefined = logEntry.search;
     }
     if (
-      warning.code === WarningCode.recursivePrefix
+      logEntry.code === LogCode.recursivePrefix
     ) {
       // No special property
     }
-    if (warning.code === WarningCode.invalidEntry) {
-      const reason: InvalidityReason = warning.reason;
+    if (logEntry.code === LogCode.invalidEntry) {
+      const reason: InvalidityReason = logEntry.reason;
     }
   }
 });

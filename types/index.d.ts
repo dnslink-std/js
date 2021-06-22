@@ -5,7 +5,7 @@ import { Resolver } from 'dns';
 import { TimeoutOptions } from '@consento/promise';
 
 declare namespace dnslink {
-  enum WarningCode {
+  enum LogCode {
     redirect = 'REDIRECT',
     resolve = 'RESOLVE',
     conflictEntry = 'CONFLICT_ENTRY',
@@ -27,40 +27,44 @@ declare namespace dnslink {
     search?: { [key: string]: string[]  };
   }
   interface Resolve extends DomainEntry {
-    code: WarningCode.resolve;
+    code: LogCode.resolve;
   }
   interface Redirect extends DomainEntry {
-    code: WarningCode.redirect;
+    code: LogCode.redirect;
   }
   interface EndlessRedirects extends DomainEntry {
-    code: WarningCode.endlessRedirect;
+    code: LogCode.endlessRedirect;
   }
   interface InvalidRedirect extends DomainEntry {
-    code: WarningCode.invalidRedirect;
+    code: LogCode.invalidRedirect;
   }
   interface TooManyRedirects extends DomainEntry {
-    code: WarningCode.tooManyRedirects;
+    code: LogCode.tooManyRedirects;
   }
   interface RecursiveDNSlinkPrefix extends DomainEntry  {
-    code: WarningCode.recursivePrefix;
+    code: LogCode.recursivePrefix;
   }
   interface Conflict {
-    code: WarningCode.conflictEntry;
+    code: LogCode.conflictEntry;
     entry: string;
   }
   interface InvalidEntry {
-    code: WarningCode.invalidEntry;
+    code: LogCode.invalidEntry;
     entry: string;
     reason: InvalidityReason;
   }
   interface UnusedEntry {
-    code: WarningCode.unusedEntry;
+    code: LogCode.unusedEntry;
     entry: string;
   }
-  type Warning = Resolve | Redirect | Conflict | InvalidEntry | EndlessRedirects | InvalidRedirect | TooManyRedirects | UnusedEntry | RecursiveDNSlinkPrefix;
+  type LogEntry = Resolve | Redirect | Conflict | InvalidEntry | EndlessRedirects | InvalidRedirect | TooManyRedirects | UnusedEntry | RecursiveDNSlinkPrefix;
   interface Result {
-    found: { [key: string]: string; };
-    warnings: Warning[];
+    links: { [key: string]: string; };
+    path: {
+      pathname?: string,
+      search?: { [key: string]: string [] }
+    };
+    log: LogEntry[];
   }
   type MaybeArray<T> = T | T[];
   interface Options extends TimeoutOptions {

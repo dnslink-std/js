@@ -7,8 +7,8 @@
   "scripts": {
     "lint": "standard *.js bin/* && dtslint --localTs node_modules/typescript/lib types",
     "test": "npm run test-doh && npm run test-udp",
-    "test-doh": "dnslink-test -e warning -- node test/integration-doh.js",
-    "test-udp": "dnslink-test -e warning -- node test/integration-udp.js"
+    "test-doh": "dnslink-test -e log -- node test/integration-doh.js",
+    "test-udp": "dnslink-test -e log -- node test/integration-udp.js"
   },
   "standard": {
     "ignore": "*.ts",
@@ -45,7 +45,7 @@
     "doh-query": "^0.6.1"
   },
   "devDependencies": {
-    "@dnslink/test": "^0.2.0",
+    "@dnslink/test": "^0.3.0",
     "@types/node": "^15.12.2",
     "dtslint": "^4.1.0",
     "fresh-tape": "^5.2.4",

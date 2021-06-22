@@ -14,14 +14,22 @@ Getting started with the dnslink in a jiffy:
 const dnslink = require('@dnslink/js')
 
 // assumes top-level await
-const { found, warnings } = await dnslink('dnslink.dev')
+const { links, path, log } = await dnslink('dnslink.dev/abcd?foo=bar')
 
-// `found` is an object containing given "links" for the different keys
-found.ipfs === 'QmTg....yomU'
+// `links` is an object containing given links for the different keys
+links.ipfs === 'QmTg....yomU'
 
-// The "warnings" is always an Array and may contain a list of warnings (misconfiguration)
-// that were found while resolving the linked data.
-Array.isArray(warnings)
+// The `log` is always an Array and contains a list of log entries
+// that were should help to trace back how the linked data was resolved.
+Array.isArray(log)
+
+// The `path` is always an Array that may contain a list of paths that
+// each link may uses to deep-resolve values. The list is sorted from
+// first to last.
+path == [{
+  pathname: '/abcd',
+  search: { foo: ['bar'] }
+}]
 ```
 
 You can also pass a set of options: 
@@ -49,24 +57,31 @@ await dnslink('dnslink.dev', {
 - With `dns` and `doh` specified it will use one mode at random. With that mode it will use one of
     the given "endpoints" for that mode at random.
 
-## Possible warnings
+## Possible log statements
 
-The warnings contained in the `warnings` result are all objects. They may be helpful to figure out why
-dnslink is not behaving like you expect. Every warning contains the `.domain` property that holds the
-domain where the problem occured (for the case of redirects) and a `.code` property to understand what
-happened. Depending on the warnings code the errors may have additional `.entry` property that holds
-the problematic TXT entry. For Redirect errors, a `.chain` property may holds the dnslink redirect
-domains that were used. A `.reason` property may contain an additional reason for that error to occur.
+The statements contained in the `log` are all objects. They may be helpful to figure out why dnslink
+is not behaving like you expect. Every statement contains the `.code` property that holds the `.code`
+property to understand what happened.
+Depending on the warnings code the errors may have additional `.entry` property that holds
+the problematic TXT entry. A `.reason` property may contain an additional reason for that error to occur.
+If redirects are employed or 
+Note that the order of the `RESOLVE` and `REDIRECT` entries are relevant, as they are point to the `.domain`
+at which previous errors occured. The entries between `RESOLVE` and `REDIRECT` statements however may
+be shuffled. These and other codes may additionally contain a `.pathname` and `.search` property,
+each containing their contribution to the path.
 
-| `.code`                  | Meaning                                                              | Additional properties |
-|--------------------------|----------------------------------------------------------------------|-----------------------|
-| CONFLICT_ENTRY           | Multiple entries for a key were found and an entry has been ignored. | `.entry`              |
-| INVALID_ENTRY            | A TXT entry with `dnslink=` prefix has formatting errors.            | `.entry`, `.reason`   |
-| RECURSIVE_DNSLINK_PREFIX | The hostname requested contains multiple `_dnslink` prefixes.        |                       |
-| UNUSED_ENTRY             | An entry is unused because a redirect overrides it.                  | `.entry`              |
-| ENDLESS_REDIRECT         | Endless DNSLink redirects detected.                                  | `.chain`              |
-| INVALID_REDIRECT         | A given redirect is of invalid format.                               | `.chain`              |
-| TOO_MANY_REDIRECTS       | Too many redirects happend. (max=32 per dnslink spec)                | `.chain`              |
+
+| `.code`                  | Meaning                                                              | Additional properties               |
+|--------------------------|----------------------------------------------------------------------|-------------------------------------|
+| RESOLVE                  | This domain name will be used for resolving.                         | `.domain`, (`.pathname`, `.search`) |
+| REDIRECT                 | Redirecting away from the specified domain name.                     | `.domain`, (`.pathname`, `.search`) |
+| CONFLICT_ENTRY           | Multiple entries for a key were found and an entry has been ignored. | `.entry`                            |
+| INVALID_ENTRY            | A TXT entry with `dnslink=` prefix has formatting errors.            | `.entry`, `.reason`                 |
+| RECURSIVE_DNSLINK_PREFIX | The hostname requested contains multiple `_dnslink` prefixes.        |                                     |
+| UNUSED_ENTRY             | An entry is unused because a redirect overrides it.                  | `.entry`                            |
+| ENDLESS_REDIRECT         | Endless DNSLink redirects detected.                                  | `.domain`, (`.pathname`, `.search`) |
+| INVALID_REDIRECT         | A given redirect is of invalid format.                               | `.domain`, (`.pathname`, `.search`) |
+| TOO_MANY_REDIRECTS       | Too many redirects happend. (max=32 per dnslink spec)                | `.domain`, (`.pathname`, `.search`) |
 
 ## Command Line
 
@@ -77,46 +92,62 @@ using `npx @dnslink/js`.
 You can get detailed help for the app by passing a `--help` option at the end:
 
 ```
-dnslink [--help] [--format=json|text|csv] [--dns[=<server>]] \
-    [--doh[=<server>]] [--key=<key>] [--no-errors] \
-    <hostname>|--hostname=<hostname>
+dnslink - resolve dns links in TXT records
 
-Usage:
+USAGE
+    dnslink [--help] [--format=json|text|csv] [--key=<key>] [--debug] \
+        [--doh[=<server>]] [--dns[=<server>]] <hostname> [...<hostname>]
 
-# Receive the dnslink entries for the dnslink.io domain.
-dnslink dnslink.io
+EXAMPLE
+    # Receive the dnslink entries for the dnslink.io domain.
+    > dnslink dnslink.io
+    /ipfs/QmTgQDr3xNgKBVDVJtyGhopHoxW4EVgpkfbwE4qckxGdyo
 
-# Receive only the ipfs entry as text for dnslink.io
-dnslink -o=text -k=ipfs dnslink.io
+    # Receive only the ipfs entry as text for dnslink.io
+    > dnslink -k=ipfs dnslink.io
+    QmTgQDr3xNgKBVDVJtyGhopHoxW4EVgpkfbwE4qckxGdyo
 
-# Receive both the result and errors and 
-dnslink -o=csv -d dnslink.io >dnslink-io.csv 2>dnslink-io_err.csv
+    # Receive all dnslink entries for multiple domains as csv
+    > dnslink -f=csv dnslink.io ipfs.io
+    lookup,key,value,path
+    "dnslink.io","ipfs","QmTgQDr3xNgKBVDVJtyGhopHoxW4EVgpkfbwE4qckxGdyo",
+    "ipfs.io","ipns","website.ipfs.io",
 
+    # Receive ipfs entries for multiple domains as json
+    > dnslink -f=json -k=ipfs dnslink.io website.ipfs.io
+    [
+    {"lookup":"website.ipfs.io","links":{"ipfs":"bafybeiagozluzfopjadeigrjlsmktseozde2xc5prvighob7452imnk76a"},"path":[]}
+    ,{"lookup":"dnslink.io","links":{"ipfs":"QmTgQDr3xNgKBVDVJtyGhopHoxW4EVgpkfbwE4qckxGdyo"},"path":[]}
+    ]
 
-Options:
+    # Receive both the result and log and write the output to files
+    > dnslink -f=csv -d dnslink.io \
+        >dnslink-io.csv \
+        2>dnslink-io.log.csv
 
---help, -h, help  Show this help.
---version, -v     Show the version of this command.
---format, -f      Output format json, text or csv (default=json)
---dns[=<server>]  Specify a dns server to use. If you don't specify a server
-                  it will use the system dns service. As server you can specify
-                  a domain with port: 1.1.1.1:53
---doh[=<server>]  Specify a dns-over-https server to use. If you don't specify
-                  a server it will use one of the doh servers of the doh-query
-                  implementation[1]. You can specify a server either by the 
-                  doh-query name (e.g. cloudflare) or as an url:
-                  https://cloudflare-dns.com:443/dns-query
---debug, -d       Render errors to stderr
---key, -k         Only render one particular dnslink key.
+OPTIONS
+    --help, -h        Show this help.
+    --version, -v     Show the version of this command.
+    --format, -f      Output format json, text or csv (default=json)
+    --dns[=<server>]  Specify a dns server to use. If you don't specify a
+                      server it will use the system dns service. As server you
+                      can specify a domain with port: 1.1.1.1:53
+    --doh[=<server>]  Specify a dns-over-https server to use. If you don't
+                      specify a server it will use one of the doh servers of
+                      the doh-query implementation[1]. You can specify a server
+                      either by the  doh-query name (e.g. cloudflare) or as an
+                      url: https://cloudflare-dns.com:443/dns-query
+    --debug, -d       Render log output to stderr in the specified format.
+    --key, -k         Only render one particular dnslink key.
 
-[1]: https://github.com/martinheidegger/doh-query/blob/main/endpoints.md
+    [1]: https://github.com/martinheidegger/doh-query/blob/main/endpoints.md
 
+NOTE
+    If you specify multiple --doh or --dns endpoints, it will at random
+    choose either dns or doh as basic mode of operation and use the given
+    endpoints for that mode at random.
 
-Note: If you specify multiple --doh or --dns endpoints, it will at random
-choose either dns or doh as basic mode of operation and use the given endpoints
-for that mode at random.
-
-Read more about it here: https://github.com/dnslink-std/js#readme
+    Read more about it here: https://github.com/dnslink-std/js#readme
 ```
 
 ## License

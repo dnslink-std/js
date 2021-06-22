@@ -6,13 +6,25 @@ function dnslink (domain, options) {
   return wrapTimeout(signal => {
     const validated = validateDomain(domain)
     if (validated.error) {
-      return { found: {}, warnings: [validated.error] }
+      return { links: {}, path: [], log: [validated.error] }
     }
     return dnslinkN(validated.redirect, { ...options, signal }, [])
+      .then(result => {
+        result.path = []
+        for (const entry of result.log.filter(entry => entry.code === 'REDIRECT' || entry.code === 'RESOLVE')) {
+          if (entry.pathname || entry.search) {
+            result.path.unshift({
+              pathname: entry.pathname,
+              search: entry.search
+            })
+          }
+        }
+        return result
+      })
   }, options)
 }
 
-dnslink.WarningCode = {
+dnslink.LogCode = {
   redirect: 'REDIRECT',
   resolve: 'RESOLVE',
   conflictEntry: 'CONFLICT_ENTRY',
@@ -33,12 +45,12 @@ dnslink.InvalidityReason = {
 module.exports = dnslink
 
 function shouldFallbackToDomain (result) {
-  // Any warnings given already prevents the fallback from _dnslink.<domain> to <domain
-  if (result.warnings.length > 0) {
+  // Any log entry given already prevents the fallback from _dnslink.<domain> to <domain>
+  if (result.log.length > 0) {
     return false
   }
   /* eslint-disable-next-line no-unreachable-loop */
-  for (const _key in result.found) {
+  for (const _key in result.links) {
     // Any result will also prevent the fallback
     return false
   }
@@ -46,14 +58,14 @@ function shouldFallbackToDomain (result) {
 }
 
 async function dnslinkN (source, options, chain) {
-  const { domain, pathname, search } = source
+  const { domain } = source
   let result = await resolveDnslink(domain, options)
   bubbleAbort(options.signal)
   let redirect
-  if (result.found.dns) {
-    const validated = validateDomain(result.found.dns.value)
+  if (result.links.dns) {
+    const validated = validateDomain(result.links.dns.value)
     if (validated.error) {
-      result.warnings.push(validated.error)
+      result.log.push(validated.error)
     } else {
       redirect = validated.redirect
     }
@@ -64,37 +76,37 @@ async function dnslinkN (source, options, chain) {
   }
   const resolve = { code: 'RESOLVE', ...source }
   if (redirect) {
-    const warnings = extractRedirectWarnings(result)
+    const log = extractRedirectLog(result)
     if (chain.includes(redirect.domain)) {
-      warnings.push(resolve)
-      return { found: {}, warnings: [...warnings, { code: 'ENDLESS_REDIRECT', ...redirect }] }
+      log.push(resolve)
+      return { links: {}, log: [...log, { code: 'ENDLESS_REDIRECT', ...redirect }] }
     }
     chain.push(domain)
     if (chain.length === 32) {
-      warnings.push(resolve)
-      return { found: {}, warnings: [...warnings, { code: 'TOO_MANY_REDIRECTS', ...redirect }] }
+      log.push(resolve)
+      return { links: {}, log: [...log, { code: 'TOO_MANY_REDIRECTS', ...redirect }] }
     }
-    warnings.push({ code: 'REDIRECT', ...source })
+    log.push({ code: 'REDIRECT', ...source })
     result = await dnslinkN(redirect, options, chain)
-    result.warnings = warnings.concat(result.warnings)
+    result.log = log.concat(result.log)
     return result
   }
-  const { found: foundRaw, warnings } = result
-  const found = {}
-  for (const key in foundRaw) {
-    found[key] = foundRaw[key].value
+  const { links: linksRaw, log } = result
+  const links = {}
+  for (const key in linksRaw) {
+    links[key] = linksRaw[key].value
   }
-  warnings.push(resolve)
-  return { found, warnings }
+  log.push(resolve)
+  return { links, log }
 }
 
-function extractRedirectWarnings (result) {
-  const { warnings, found } = result
-  for (const key in found) {
+function extractRedirectLog (result) {
+  const { log, links } = result
+  for (const key in links) {
     if (key === 'dns') continue
-    warnings.push({ code: 'UNUSED_ENTRY', entry: found[key].entry })
+    log.push({ code: 'UNUSED_ENTRY', entry: links[key].entry })
   }
-  return warnings
+  return log
 }
 
 const PREFIX = 'dnslink='
@@ -103,33 +115,33 @@ async function resolveDnslink (domain, options) {
   const txtEntries = (await resolveTxt(domain, options))
     .reduce((combined, array) => combined.concat(array), [])
 
-  const warnings = []
-  const found = {}
+  const log = []
+  const links = {}
   for (const entry of txtEntries) {
     if (!entry.startsWith(PREFIX)) {
       continue
     }
     const validated = validate(entry)
     if (validated.error !== undefined) {
-      warnings.push({ code: 'INVALID_ENTRY', entry, reason: validated.error })
+      log.push({ code: 'INVALID_ENTRY', entry, reason: validated.error })
       continue
     }
     const { key, value } = validated
-    const prev = found[key]
+    const prev = links[key]
     if (!prev || prev.value > value) {
       if (prev) {
-        warnings.push({ code: 'CONFLICT_ENTRY', entry: prev.entry })
+        log.push({ code: 'CONFLICT_ENTRY', entry: prev.entry })
       }
-      found[key] = {
+      links[key] = {
         value,
         entry
       }
     } else {
-      warnings.push({ code: 'CONFLICT_ENTRY', entry })
+      log.push({ code: 'CONFLICT_ENTRY', entry })
     }
   }
 
-  return { found, warnings }
+  return { links, log }
 }
 
 function validateDomain (input) {
