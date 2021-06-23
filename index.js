@@ -41,13 +41,13 @@ dnslink.InvalidityReason = {
 
 module.exports = dnslink
 
-function shouldFallbackToDomain (result) {
+function shouldFallbackToDomain (links, log) {
   // Any log entry given already prevents the fallback from _dnslink.<domain> to <domain>
-  if (result.log.length > 0) {
+  if (log.length > 0) {
     return false
   }
   /* eslint-disable-next-line no-unreachable-loop */
-  for (const _key in result.links) {
+  for (const _key in links) {
     // Any result will also prevent the fallback
     return false
   }
@@ -68,13 +68,13 @@ async function dnslinkN (domain, options) {
     const resolved = await resolveDnslink(domain, options)
     log = log.concat(resolved.log)
     bubbleAbort(options.signal)
-    const redirect = getRedirect(domain, resolved)
+    const { redirect } = resolved
     const resolve = { code: 'RESOLVE', ...source }
     if (!redirect) {
       const { links } = resolved
       log.push(resolve)
-      for (const [key, entry] of Object.entries(links)) {
-        links[key] = entry.value
+      for (const [key, { value }] of Object.entries(links)) {
+        links[key] = value
       }
       return {
         links,
@@ -82,9 +82,9 @@ async function dnslinkN (domain, options) {
         log
       }
     }
-    for (const key in resolved.links) {
+    for (const [key, { entry }] of Object.entries(resolved.links)) {
       if (key === 'dns') continue
-      log.push({ code: 'UNUSED_ENTRY', entry: resolved.links[key].entry })
+      log.push({ code: 'UNUSED_ENTRY', entry })
     }
     if (chain.includes(redirect.domain)) {
       log.push(resolve)
@@ -102,15 +102,15 @@ async function dnslinkN (domain, options) {
   }
 }
 
-function getRedirect (domain, result) {
-  if (result.links.dns) {
-    const validated = validateDomain(result.links.dns.value)
+function getRedirect (domain, links, log) {
+  if (links.dns) {
+    const validated = validateDomain(links.dns.value)
     if (validated.error) {
-      result.log.push(validated.error)
+      log.push(validated.error)
     } else {
       return validated.redirect
     }
-  } else if (domain.startsWith(DNS_PREFIX) && shouldFallbackToDomain(result)) {
+  } else if (domain.startsWith(DNS_PREFIX) && shouldFallbackToDomain(links, log)) {
     return {
       domain: domain.substr(DNS_PREFIX.length)
     }
@@ -148,8 +148,8 @@ async function resolveDnslink (domain, options) {
       log.push({ code: 'CONFLICT_ENTRY', entry })
     }
   }
-
-  return { links, log }
+  const redirect = getRedirect(domain, links, log)
+  return { redirect, links, log }
 }
 
 function validateDomain (input) {
