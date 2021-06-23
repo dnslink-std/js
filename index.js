@@ -57,9 +57,6 @@ async function dnslinkN (domain, options) {
     const resolve = { code: 'RESOLVE', ...source }
     if (!redirect) {
       log.push(resolve)
-      for (const [key, { value }] of Object.entries(links)) {
-        links[key] = value
-      }
       return {
         links,
         path: getPathFromLog(log),
@@ -88,7 +85,7 @@ async function resolveDnslink (domain, options, log) {
   const txtEntries = (await resolveTxt(domain, options))
     .reduce((combined, array) => combined.concat(array), [])
 
-  const links = {}
+  const found = {}
   let hasEntry = false
   for (const entry of txtEntries) {
     if (!entry.startsWith(PREFIX)) {
@@ -101,25 +98,22 @@ async function resolveDnslink (domain, options, log) {
       continue
     }
     const { key, value } = validated
-    const prev = links[key]
+    const prev = found[key]
     if (!prev || prev.value > value) {
       if (prev) {
         log.push({ code: 'CONFLICT_ENTRY', entry: prev.entry })
       }
-      links[key] = {
-        value,
-        entry
-      }
+      found[key] = { value, entry }
     } else {
       log.push({ code: 'CONFLICT_ENTRY', entry })
     }
   }
-  if (links.dns) {
-    const validated = validateDomain(links.dns.value)
+  if (found.dns) {
+    const validated = validateDomain(found.dns.value)
     if (validated.error) {
       log.push(validated.error)
     } else {
-      for (const [key, { entry }] of Object.entries(links)) {
+      for (const [key, { entry }] of Object.entries(found)) {
         if (key === 'dns') continue
         log.push({ code: 'UNUSED_ENTRY', entry })
       }
@@ -131,6 +125,10 @@ async function resolveDnslink (domain, options, log) {
         domain: domain.substr(DNS_PREFIX.length)
       }
     }
+  }
+  const links = {}
+  for (const [key, { value }] of Object.entries(found)) {
+    links[key] = value
   }
   return { links }
 }
