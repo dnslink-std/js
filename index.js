@@ -9,19 +9,7 @@ function dnslink (domain, options = {}) {
     if (validated.error) {
       return { links: {}, path: [], log: [validated.error] }
     }
-    const { links, log } = await dnslinkN(validated.redirect, { ...options, signal })
-    if (links === undefined) {
-      links = {}
-    } else {
-      for (const [key, entry] of Object.entries(links)) {
-        links[key] = entry.value
-      }
-    }
-    return {
-      links: links,
-      path: getPathFromLog(log),
-      log
-    }
+    return await dnslinkN(validated.redirect, { ...options, signal })
   }, options)
 }
 
@@ -106,8 +94,16 @@ async function dnslinkN (source, options) {
       break
     }
   }
+  if (links === undefined) {
+    links = {}
+  } else {
+    for (const [key, entry] of Object.entries(links)) {
+      links[key] = entry.value
+    }
+  }
   return {
-    links,
+    links: links,
+    path: getPathFromLog(log),
     log
   }
 }
