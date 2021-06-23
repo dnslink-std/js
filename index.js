@@ -1,22 +1,10 @@
 const { wrapTimeout } = require('@consento/promise/wrapTimeout')
 const { bubbleAbort } = require('@consento/promise/bubbleAbort')
 const DNS_PREFIX = '_dnslink.'
+const TXT_PREFIX = 'dnslink='
 
 function dnslink (domain, options = {}) {
   return wrapTimeout(async signal => dnslinkN(domain, { ...options, signal }), options)
-}
-
-function getPathFromLog (log) {
-  const path = []
-  for (const entry of log.filter(entry => entry.code === 'REDIRECT' || entry.code === 'RESOLVE')) {
-    if (entry.pathname || entry.search) {
-      path.unshift({
-        pathname: entry.pathname,
-        search: entry.search
-      })
-    }
-  }
-  return path
 }
 
 dnslink.LogCode = {
@@ -73,60 +61,6 @@ async function dnslinkN (domain, options) {
   }
 }
 
-const PREFIX = 'dnslink='
-
-async function resolveDnslink (domain, options, log) {
-  const dnslinkEntries = (await resolveTxt(domain, options))
-    .reduce((combined, array) => combined.concat(array), [])
-    .filter(entry => entry.startsWith(PREFIX))
-
-  if (dnslinkEntries.length === 0 && domain.startsWith(DNS_PREFIX)) {
-    return {
-      redirect: { domain: domain.substr(DNS_PREFIX.length) }
-    }
-  }
-  const found = processEntries(dnslinkEntries, log)
-  if (found.dns) {
-    const validated = validateDomain(found.dns.value)
-    if (validated.error) {
-      log.push(validated.error)
-    } else {
-      for (const [key, { entry }] of Object.entries(found)) {
-        if (key === 'dns') continue
-        log.push({ code: 'UNUSED_ENTRY', entry })
-      }
-      return validated
-    }
-  }
-  const links = {}
-  for (const [key, { value }] of Object.entries(found)) {
-    links[key] = value
-  }
-  return { links }
-}
-
-function processEntries (dnslinkEntries, log) {
-  const found = {}
-  for (const entry of dnslinkEntries) {
-    const validated = validateDNSLinkEntry(entry)
-    if (validated.error !== undefined) {
-      log.push({ code: 'INVALID_ENTRY', entry, reason: validated.error })
-      continue
-    }
-    const { key, value } = validated
-    const prev = found[key]
-    if (!prev || prev.value > value) {
-      if (prev) {
-        log.push({ code: 'CONFLICT_ENTRY', entry: prev.entry })
-      }
-      found[key] = { value, entry }
-    } else {
-      log.push({ code: 'CONFLICT_ENTRY', entry })
-    }
-  }
-  return found
-}
-
 function validateDomain (input) {
   let { domain, pathname, search } = relevantURLParts(input)
   if (domain.startsWith(DNS_PREFIX)) {
@@ -165,28 +99,34 @@ function relevantURLParts (input) {
   return { search, domain, pathname }
 }
 
-function validateDNSLinkEntry (entry) {
-  const trimmed = entry.substr(PREFIX.length).trim()
-  if (!trimmed.startsWith('/')) {
-    return { error: 'WRONG_START' }
+async function resolveDnslink (domain, options, log) {
+  const dnslinkEntries = (await resolveTxt(domain, options))
+    .reduce((combined, array) => combined.concat(array), [])
+    .filter(entry => entry.startsWith(TXT_PREFIX))
+
+  if (dnslinkEntries.length === 0 && domain.startsWith(DNS_PREFIX)) {
+    return {
+      redirect: { domain: domain.substr(DNS_PREFIX.length) }
+    }
   }
-  const parts = trimmed.split('/')
-  parts.shift()
-  let key
-  if (parts.length !== 0) {
-    key = parts.shift().trim()
+  const found = processEntries(dnslinkEntries, log)
+  if (found.dns) {
+    const validated = validateDomain(found.dns.value)
+    if (validated.error) {
+      log.push(validated.error)
+    } else {
+      for (const [key, { entry }] of Object.entries(found)) {
+        if (key === 'dns') continue
+        log.push({ code: 'UNUSED_ENTRY', entry })
+      }
+      return validated
+    }
   }
-  if (!key) {
-    return { error: 'KEY_MISSING' }
+  const links = {}
+  for (const [key, { value }] of Object.entries(found)) {
+    links[key] = value
   }
-  let value
-  if (parts.length !== 0) {
-    value = parts.join('/').trim()
-  }
-  if (!value) {
-    return { error: 'NO_VALUE' }
-  }
-  return { key, value }
+  return { links }
 }
 
 let dohQuery
@@ -209,4 +149,63 @@ async function resolveTxt (domain, options) {
     dnsQuery = require('./query-txt.node.js')
   }
   return dnsQuery(domain, options)
+}
+
+function processEntries (dnslinkEntries, log) {
+  const found = {}
+  for (const entry of dnslinkEntries) {
+    const validated = validateDNSLinkEntry(entry)
+    if (validated.error !== undefined) {
+      log.push({ code: 'INVALID_ENTRY', entry, reason: validated.error })
+      continue
+    }
+    const { key, value } = validated
+    const prev = found[key]
+    if (!prev || prev.value > value) {
+      if (prev) {
+        log.push({ code: 'CONFLICT_ENTRY', entry: prev.entry })
+      }
+      found[key] = { value, entry }
+    } else {
+      log.push({ code: 'CONFLICT_ENTRY', entry })
+    }
+  }
+  return found
+}
+
+function validateDNSLinkEntry (entry) {
+  const trimmed = entry.substr(TXT_PREFIX.length).trim()
+  if (!trimmed.startsWith('/')) {
+    return { error: 'WRONG_START' }
+  }
+  const parts = trimmed.split('/')
+  parts.shift()
+  let key
+  if (parts.length !== 0) {
+    key = parts.shift().trim()
+  }
+  if (!key) {
+    return { error: 'KEY_MISSING' }
+  }
+  let value
+  if (parts.length !== 0) {
+    value = parts.join('/').trim()
+  }
+  if (!value) {
+    return { error: 'NO_VALUE' }
+  }
+  return { key, value }
+}
+
+function getPathFromLog (log) {
+  const path = []
+  for (const entry of log.filter(entry => entry.code === 'REDIRECT' || entry.code === 'RESOLVE')) {
+    if (entry.pathname || entry.search) {
+      path.unshift({
+        pathname: entry.pathname,
+        search: entry.search
+      })
+    }
+  }
+  return path
 }
