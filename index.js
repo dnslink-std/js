@@ -70,26 +70,8 @@ async function dnslinkN (domain, options) {
     bubbleAbort(options.signal)
     const redirect = getRedirect(domain, resolved)
     const resolve = { code: 'RESOLVE', ...source }
-    if (redirect) {
-      for (const key in resolved.links) {
-        if (key === 'dns') continue
-        log.push({ code: 'UNUSED_ENTRY', entry: resolved.links[key].entry })
-      }
-      if (chain.includes(redirect.domain)) {
-        log.push(resolve)
-        log.push({ code: 'ENDLESS_REDIRECT', ...redirect })
-        return { links: {}, path: [], log }
-      }
-      if (chain.length === 31) {
-        log.push(resolve)
-        log.push({ code: 'TOO_MANY_REDIRECTS', ...redirect })
-        return { links: {}, path: [], log }
-      }
-      chain.push(domain)
-      log.push({ code: 'REDIRECT', ...source })
-      source = redirect
-    } else {
-      links = resolved.links
+    if (!redirect) {
+      const { links } = resolved
       log.push(resolve)
       for (const [key, entry] of Object.entries(links)) {
         links[key] = entry.value
@@ -100,6 +82,23 @@ async function dnslinkN (domain, options) {
         log
       }
     }
+    for (const key in resolved.links) {
+      if (key === 'dns') continue
+      log.push({ code: 'UNUSED_ENTRY', entry: resolved.links[key].entry })
+    }
+    if (chain.includes(redirect.domain)) {
+      log.push(resolve)
+      log.push({ code: 'ENDLESS_REDIRECT', ...redirect })
+      return { links: {}, path: [], log }
+    }
+    if (chain.length === 31) {
+      log.push(resolve)
+      log.push({ code: 'TOO_MANY_REDIRECTS', ...redirect })
+      return { links: {}, path: [], log }
+    }
+    chain.push(domain)
+    log.push({ code: 'REDIRECT', ...source })
+    source = redirect
   }
 }
 
