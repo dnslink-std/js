@@ -4,26 +4,24 @@ const DNS_PREFIX = '_dnslink.'
 
 function dnslink (domain, options) {
   options.redirect = options.redirect !== false
-  return wrapTimeout(signal => {
+  return wrapTimeout(async signal => {
     const validated = validateDomain(domain)
     if (validated.error) {
       return { links: {}, path: [], log: [validated.error] }
     }
-    return dnslinkN(validated.redirect, { ...options, signal })
-      .then(({ links, log }) => {
-        if (links === undefined) {
-          links = {}
-        } else {
-          for (const [key, entry] of Object.entries(links)) {
-            links[key] = entry.value
-          }
-        }
-        return {
-          links: links,
-          path: getPathFromLog(log),
-          log
-        }
-      })
+    const { links, log } = await dnslinkN(validated.redirect, { ...options, signal })
+    if (links === undefined) {
+      links = {}
+    } else {
+      for (const [key, entry] of Object.entries(links)) {
+        links[key] = entry.value
+      }
+    }
+    return {
+      links: links,
+      path: getPathFromLog(log),
+      log
+    }
   }, options)
 }
 
