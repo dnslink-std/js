@@ -9,7 +9,7 @@ function dnslink (domain, options) {
     if (validated.error) {
       return { links: {}, path: [], log: [validated.error] }
     }
-    return dnslinkN(validated.redirect, { ...options, signal }, [])
+    return dnslinkN(validated.redirect, { ...options, signal })
       .then(({ links, log }) => {
         if (links === undefined) {
           links = {}
@@ -73,9 +73,10 @@ function shouldFallbackToDomain (result) {
   return true
 }
 
-async function dnslinkN (source, options, chain) {
+async function dnslinkN (source, options) {
   let links
   let log = []
+  const chain = []
   while (true) {
     const { domain } = source
     const resolved = await resolveDnslink(domain, options)
@@ -93,12 +94,12 @@ async function dnslinkN (source, options, chain) {
         log.push({ code: 'ENDLESS_REDIRECT', ...redirect })
         break
       }
-      chain.push(domain)
-      if (chain.length === 32) {
+      if (chain.length === 31) {
         log.push(resolve)
         log.push({ code: 'TOO_MANY_REDIRECTS', ...redirect })
         break
       }
+      chain.push(domain)
       log.push({ code: 'REDIRECT', ...source })
       source = redirect
     } else {
