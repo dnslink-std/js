@@ -3,9 +3,7 @@ const { bubbleAbort } = require('@consento/promise/bubbleAbort')
 const DNS_PREFIX = '_dnslink.'
 
 function dnslink (domain, options = {}) {
-  return wrapTimeout(async signal => {
-    return await dnslinkN(domain, { ...options, signal })
-  }, options)
+  return wrapTimeout(async signal => dnslinkN(domain, { ...options, signal }), options)
 }
 
 function getPathFromLog (log) {
@@ -57,11 +55,7 @@ async function dnslinkN (domain, options) {
     const resolve = { code: 'RESOLVE', ...lookup }
     if (!redirect) {
       log.push(resolve)
-      return {
-        links,
-        path: getPathFromLog(log),
-        log
-      }
+      return { links, path: getPathFromLog(log), log }
     }
     if (chain.includes(redirect.domain)) {
       log.push(resolve)
@@ -86,6 +80,11 @@ async function resolveDnslink (domain, options, log) {
     .reduce((combined, array) => combined.concat(array), [])
     .filter(entry => entry.startsWith(PREFIX))
 
+  if (dnslinkEntries.length === 0 && domain.startsWith(DNS_PREFIX)) {
+    return {
+      redirect: { domain: domain.substr(DNS_PREFIX.length) }
+    }
+  }
   const found = processEntries(dnslinkEntries, log)
   if (found.dns) {
     const validated = validateDomain(found.dns.value)
@@ -98,12 +97,6 @@ async function resolveDnslink (domain, options, log) {
       }
       return validated
     }
-  } else if (domain.startsWith(DNS_PREFIX) && !dnslinkEntries.length > 0) {
-    return {
-      redirect: {
-        domain: domain.substr(DNS_PREFIX.length)
-      }
-    }
   }
   const links = {}
   for (const [key, { value }] of Object.entries(found)) {
@@ -115,7 +108,7 @@ async function resolveDnslink (domain, options, log) {
 function processEntries (dnslinkEntries, log) {
   const found = {}
   for (const entry of dnslinkEntries) {
-    const validated = validate(entry)
+    const validated = validateDNSLinkEntry(entry)
     if (validated.error !== undefined) {
       log.push({ code: 'INVALID_ENTRY', entry, reason: validated.error })
       continue
@@ -172,7 +165,7 @@ function relevantURLParts (input) {
   return { search, domain, pathname }
 }
 
-function validate (entry) {
+function validateDNSLinkEntry (entry) {
   const trimmed = entry.substr(PREFIX.length).trim()
   if (!trimmed.startsWith('/')) {
     return { error: 'WRONG_START' }
