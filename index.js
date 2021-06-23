@@ -61,7 +61,6 @@ async function dnslinkN (domain, options) {
     return { links: {}, path: [], log: [validated.error] }
   }
   let source = validated.redirect
-  let links
   let log = []
   const chain = []
   while (true) {
@@ -79,12 +78,12 @@ async function dnslinkN (domain, options) {
       if (chain.includes(redirect.domain)) {
         log.push(resolve)
         log.push({ code: 'ENDLESS_REDIRECT', ...redirect })
-        break
+        return { links: {}, path: [], log }
       }
       if (chain.length === 31) {
         log.push(resolve)
         log.push({ code: 'TOO_MANY_REDIRECTS', ...redirect })
-        break
+        return { links: {}, path: [], log }
       }
       chain.push(domain)
       log.push({ code: 'REDIRECT', ...source })
@@ -92,20 +91,15 @@ async function dnslinkN (domain, options) {
     } else {
       links = resolved.links
       log.push(resolve)
-      break
+      for (const [key, entry] of Object.entries(links)) {
+        links[key] = entry.value
+      }
+      return {
+        links,
+        path: getPathFromLog(log),
+        log
+      }
     }
-  }
-  if (links === undefined) {
-    links = {}
-  } else {
-    for (const [key, entry] of Object.entries(links)) {
-      links[key] = entry.value
-    }
-  }
-  return {
-    links: links,
-    path: getPathFromLog(log),
-    log
   }
 }
 
