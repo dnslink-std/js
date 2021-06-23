@@ -2,9 +2,9 @@ const { wrapTimeout } = require('@consento/promise/wrapTimeout')
 const { bubbleAbort } = require('@consento/promise/bubbleAbort')
 const DNS_PREFIX = '_dnslink.'
 
-function dnslink (domain, options) {
-  options.redirect = options.redirect !== false
+function dnslink (domain, options = {}) {
   return wrapTimeout(async signal => {
+    options.redirect = options.redirect !== false
     const validated = validateDomain(domain)
     if (validated.error) {
       return { links: {}, path: [], log: [validated.error] }
