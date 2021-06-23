@@ -82,14 +82,11 @@ async function dnslinkN (domain, options) {
 const PREFIX = 'dnslink='
 
 async function resolveDnslink (domain, options, log) {
-  const txtEntries = (await resolveTxt(domain, options))
+  const dnslinkEntries = (await resolveTxt(domain, options))
     .reduce((combined, array) => combined.concat(array), [])
     .filter(entry => entry.startsWith(PREFIX))
 
-  const found = {}
-  for (const entry of txtEntries) {
-    maybeAddEntry(found, entry, log)
-  }
+  const found = processEntries(dnslinkEntries, log)
   if (found.dns) {
     const validated = validateDomain(found.dns.value)
     if (validated.error) {
@@ -101,7 +98,7 @@ async function resolveDnslink (domain, options, log) {
       }
       return validated
     }
-  } else if (domain.startsWith(DNS_PREFIX) && !txtEntries.length > 0) {
+  } else if (domain.startsWith(DNS_PREFIX) && !dnslinkEntries.length > 0) {
     return {
       redirect: {
         domain: domain.substr(DNS_PREFIX.length)
@@ -115,22 +112,26 @@ async function resolveDnslink (domain, options, log) {
   return { links }
 }
 
-function maybeAddEntry (found, entry, log) {
-  const validated = validate(entry)
-  if (validated.error !== undefined) {
-    log.push({ code: 'INVALID_ENTRY', entry, reason: validated.error })
-    return
-  }
-  const { key, value } = validated
-  const prev = found[key]
-  if (!prev || prev.value > value) {
-    if (prev) {
-      log.push({ code: 'CONFLICT_ENTRY', entry: prev.entry })
+function processEntries (dnslinkEntries, log) {
+  const found = {}
+  for (const entry of dnslinkEntries) {
+    const validated = validate(entry)
+    if (validated.error !== undefined) {
+      log.push({ code: 'INVALID_ENTRY', entry, reason: validated.error })
+      continue
     }
-    found[key] = { value, entry }
-  } else {
-    log.push({ code: 'CONFLICT_ENTRY', entry })
+    const { key, value } = validated
+    const prev = found[key]
+    if (!prev || prev.value > value) {
+      if (prev) {
+        log.push({ code: 'CONFLICT_ENTRY', entry: prev.entry })
+      }
+      found[key] = { value, entry }
+    } else {
+      log.push({ code: 'CONFLICT_ENTRY', entry })
+    }
   }
+  return found
 }
 
 function validateDomain (input) {
