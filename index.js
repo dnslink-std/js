@@ -3,25 +3,37 @@ const { bubbleAbort } = require('@consento/promise/bubbleAbort')
 const DNS_PREFIX = '_dnslink.'
 
 function dnslink (domain, options) {
+  options.redirect = options.redirect !== false
   return wrapTimeout(signal => {
     const validated = validateDomain(domain)
     if (validated.error) {
       return { links: {}, path: [], log: [validated.error] }
     }
     return dnslinkN(validated.redirect, { ...options, signal }, [])
-      .then(result => {
-        result.path = []
-        for (const entry of result.log.filter(entry => entry.code === 'REDIRECT' || entry.code === 'RESOLVE')) {
-          if (entry.pathname || entry.search) {
-            result.path.unshift({
-              pathname: entry.pathname,
-              search: entry.search
-            })
-          }
+      .then(({ links, log }) => {
+        for (const [key, entry] of Object.entries(links)) {
+          links[key] = entry.value
         }
-        return result
+        return {
+          links: links,
+          path: getPathFromLog(log),
+          log
+        }
       })
   }, options)
+}
+
+function getPathFromLog (log) {
+  const path = []
+  for (const entry of log.filter(entry => entry.code === 'REDIRECT' || entry.code === 'RESOLVE')) {
+    if (entry.pathname || entry.search) {
+      path.unshift({
+        pathname: entry.pathname,
+        search: entry.search
+      })
+    }
+  }
+  return path
 }
 
 dnslink.LogCode = {
@@ -61,19 +73,7 @@ async function dnslinkN (source, options, chain) {
   const { domain } = source
   let result = await resolveDnslink(domain, options)
   bubbleAbort(options.signal)
-  let redirect
-  if (result.links.dns) {
-    const validated = validateDomain(result.links.dns.value)
-    if (validated.error) {
-      result.log.push(validated.error)
-    } else {
-      redirect = validated.redirect
-    }
-  } else if (domain.startsWith(DNS_PREFIX) && shouldFallbackToDomain(result)) {
-    redirect = {
-      domain: domain.substr(DNS_PREFIX.length)
-    }
-  }
+  const redirect = getRedirect(domain, result)
   const resolve = { code: 'RESOLVE', ...source }
   if (redirect) {
     const log = extractRedirectLog(result)
@@ -91,13 +91,23 @@ async function dnslinkN (source, options, chain) {
     result.log = log.concat(result.log)
     return result
   }
-  const { links: linksRaw, log } = result
-  const links = {}
-  for (const key in linksRaw) {
-    links[key] = linksRaw[key].value
+  result.log.push(resolve)
+  return result
+}
+
+function getRedirect (domain, result) {
+  if (result.links.dns) {
+    const validated = validateDomain(result.links.dns.value)
+    if (validated.error) {
+      result.log.push(validated.error)
+    } else {
+      return validated.redirect
+    }
+  } else if (domain.startsWith(DNS_PREFIX) && shouldFallbackToDomain(result)) {
+    return {
+      domain: domain.substr(DNS_PREFIX.length)
+    }
   }
-  log.push(resolve)
-  return { links, log }
 }
 
 function extractRedirectLog (result) {
