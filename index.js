@@ -4,12 +4,7 @@ const DNS_PREFIX = '_dnslink.'
 
 function dnslink (domain, options = {}) {
   return wrapTimeout(async signal => {
-    options.redirect = options.redirect !== false
-    const validated = validateDomain(domain)
-    if (validated.error) {
-      return { links: {}, path: [], log: [validated.error] }
-    }
-    return await dnslinkN(validated.redirect, { ...options, signal })
+    return await dnslinkN(domain, { ...options, signal })
   }, options)
 }
 
@@ -59,7 +54,13 @@ function shouldFallbackToDomain (result) {
   return true
 }
 
-async function dnslinkN (source, options) {
+async function dnslinkN (domain, options) {
+  options.redirect = options.redirect !== false
+  const validated = validateDomain(domain)
+  if (validated.error) {
+    return { links: {}, path: [], log: [validated.error] }
+  }
+  let source = validated.redirect
   let links
   let log = []
   const chain = []
