@@ -11,8 +11,12 @@ function dnslink (domain, options) {
     }
     return dnslinkN(validated.redirect, { ...options, signal }, [])
       .then(({ links, log }) => {
-        for (const [key, entry] of Object.entries(links)) {
-          links[key] = entry.value
+        if (links === undefined) {
+          links = {}
+        } else {
+          for (const [key, entry] of Object.entries(links)) {
+            links[key] = entry.value
+          }
         }
         return {
           links: links,
@@ -70,29 +74,43 @@ function shouldFallbackToDomain (result) {
 }
 
 async function dnslinkN (source, options, chain) {
-  const { domain } = source
-  let result = await resolveDnslink(domain, options)
-  bubbleAbort(options.signal)
-  const redirect = getRedirect(domain, result)
-  const resolve = { code: 'RESOLVE', ...source }
-  if (redirect) {
-    const log = extractRedirectLog(result)
-    if (chain.includes(redirect.domain)) {
+  let links
+  let log = []
+  while (true) {
+    const { domain } = source
+    const resolved = await resolveDnslink(domain, options)
+    log = log.concat(resolved.log)
+    bubbleAbort(options.signal)
+    const redirect = getRedirect(domain, resolved)
+    const resolve = { code: 'RESOLVE', ...source }
+    if (redirect) {
+      for (const key in resolved.links) {
+        if (key === 'dns') continue
+        log.push({ code: 'UNUSED_ENTRY', entry: resolved.links[key].entry })
+      }
+      if (chain.includes(redirect.domain)) {
+        log.push(resolve)
+        log.push({ code: 'ENDLESS_REDIRECT', ...redirect })
+        break
+      }
+      chain.push(domain)
+      if (chain.length === 32) {
+        log.push(resolve)
+        log.push({ code: 'TOO_MANY_REDIRECTS', ...redirect })
+        break
+      }
+      log.push({ code: 'REDIRECT', ...source })
+      source = redirect
+    } else {
+      links = resolved.links
       log.push(resolve)
-      return { links: {}, log: [...log, { code: 'ENDLESS_REDIRECT', ...redirect }] }
+      break
     }
-    chain.push(domain)
-    if (chain.length === 32) {
-      log.push(resolve)
-      return { links: {}, log: [...log, { code: 'TOO_MANY_REDIRECTS', ...redirect }] }
-    }
-    log.push({ code: 'REDIRECT', ...source })
-    result = await dnslinkN(redirect, options, chain)
-    result.log = log.concat(result.log)
-    return result
   }
-  result.log.push(resolve)
-  return result
+  return {
+    links,
+    log
+  }
 }
 
 function getRedirect (domain, result) {
@@ -108,15 +126,6 @@ function getRedirect (domain, result) {
       domain: domain.substr(DNS_PREFIX.length)
     }
   }
-}
-
-function extractRedirectLog (result) {
-  const { log, links } = result
-  for (const key in links) {
-    if (key === 'dns') continue
-    log.push({ code: 'UNUSED_ENTRY', entry: links[key].entry })
-  }
-  return log
 }
 
 const PREFIX = 'dnslink='
