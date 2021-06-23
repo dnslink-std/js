@@ -47,14 +47,14 @@ async function dnslinkN (domain, options) {
   if (validated.error) {
     return { links: {}, path: [], log: [validated.error] }
   }
-  let source = validated.redirect
+  let lookup = validated.redirect
   const log = []
   const chain = []
   while (true) {
-    const { domain } = source
+    const { domain } = lookup
     const { links, redirect } = await resolveDnslink(domain, options, log)
     bubbleAbort(options.signal)
-    const resolve = { code: 'RESOLVE', ...source }
+    const resolve = { code: 'RESOLVE', ...lookup }
     if (!redirect) {
       log.push(resolve)
       return {
@@ -74,8 +74,8 @@ async function dnslinkN (domain, options) {
       return { links: {}, path: [], log }
     }
     chain.push(domain)
-    log.push({ code: 'REDIRECT', ...source })
-    source = redirect
+    log.push({ code: 'REDIRECT', ...lookup })
+    lookup = redirect
   }
 }
 
@@ -84,29 +84,11 @@ const PREFIX = 'dnslink='
 async function resolveDnslink (domain, options, log) {
   const txtEntries = (await resolveTxt(domain, options))
     .reduce((combined, array) => combined.concat(array), [])
+    .filter(entry => entry.startsWith(PREFIX))
 
   const found = {}
-  let hasEntry = false
   for (const entry of txtEntries) {
-    if (!entry.startsWith(PREFIX)) {
-      continue
-    }
-    hasEntry = true
-    const validated = validate(entry)
-    if (validated.error !== undefined) {
-      log.push({ code: 'INVALID_ENTRY', entry, reason: validated.error })
-      continue
-    }
-    const { key, value } = validated
-    const prev = found[key]
-    if (!prev || prev.value > value) {
-      if (prev) {
-        log.push({ code: 'CONFLICT_ENTRY', entry: prev.entry })
-      }
-      found[key] = { value, entry }
-    } else {
-      log.push({ code: 'CONFLICT_ENTRY', entry })
-    }
+    maybeAddEntry(found, entry, log)
   }
   if (found.dns) {
     const validated = validateDomain(found.dns.value)
@@ -119,7 +101,7 @@ async function resolveDnslink (domain, options, log) {
       }
       return validated
     }
-  } else if (domain.startsWith(DNS_PREFIX) && !hasEntry) {
+  } else if (domain.startsWith(DNS_PREFIX) && !txtEntries.length > 0) {
     return {
       redirect: {
         domain: domain.substr(DNS_PREFIX.length)
@@ -131,6 +113,24 @@ async function resolveDnslink (domain, options, log) {
     links[key] = value
   }
   return { links }
+}
+
+function maybeAddEntry (found, entry, log) {
+  const validated = validate(entry)
+  if (validated.error !== undefined) {
+    log.push({ code: 'INVALID_ENTRY', entry, reason: validated.error })
+    return
+  }
+  const { key, value } = validated
+  const prev = found[key]
+  if (!prev || prev.value > value) {
+    if (prev) {
+      log.push({ code: 'CONFLICT_ENTRY', entry: prev.entry })
+    }
+    found[key] = { value, entry }
+  } else {
+    log.push({ code: 'CONFLICT_ENTRY', entry })
+  }
 }
 
 function validateDomain (input) {
