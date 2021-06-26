@@ -19,16 +19,18 @@ const InvalidityReason = Object.freeze({
   noValue: 'NO_VALUE'
 })
 
-function dnslink (domain, options = {}) {
-  return wrapTimeout(async signal => dnslinkN(domain, { ...options, signal }), options)
-}
-dnslink.LogCode = LogCode
-dnslink.InvalidityReason = InvalidityReason
-
-module.exports = dnslink
+module.exports = Object.freeze({
+  resolve: function dnslink (domain, options = {}) {
+    return wrapTimeout(async signal => dnslinkN(domain, { redirect: false, ...options, signal }), options)
+  },
+  resolveN: function dnslink (domain, options = {}) {
+    return wrapTimeout(async signal => dnslinkN(domain, { redirect: true, ...options, signal }), options)
+  },
+  LogCode: LogCode,
+  InvalidityReason: InvalidityReason
+})
 
 async function dnslinkN (domain, options) {
-  options.redirect = options.redirect !== false
   const validated = validateDomain(domain)
   if (validated.error) {
     return { links: {}, path: [], log: [validated.error] }
@@ -117,7 +119,7 @@ function resolveTxtEntries (domain, options, txtEntries, log) {
     }
   }
   const found = processEntries(dnslinkEntries, log)
-  if (found.dns) {
+  if (options.redirect && found.dns) {
     const validated = validateDomain(found.dns.value)
     if (validated.error) {
       delete found.dns

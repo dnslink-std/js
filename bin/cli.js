@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 const AbortController = require('abort-controller')
-const dnslink = require('../index')
+const { resolve } = require('../index')
 const { version, homepage } = require('../package.json')
 
 const json = input => JSON.stringify(input)
@@ -175,7 +175,8 @@ module.exports = (command) => {
         err: process.stderr
       })
       await Promise.all(domains.map(async (domain) => {
-        output.write(domain, await dnslink(domain, {
+        output.write(domain, await resolve(domain, {
+          recursive: !!(options.recursive || options.r),
           signal,
           doh: options.doh,
           dns: options.dns
@@ -204,11 +205,12 @@ function showHelp (command) {
 
 USAGE
     ${command} [--help] [--format=json|text|csv] [--key=<key>] [--debug] \\
-        [--doh[=<server>]] [--dns[=<server>]] <hostname> [...<hostname>]
+        [--doh[=<server>]] [--dns[=<server>]] [--recursive] \\
+        <hostname> [...<hostname>]
 
 EXAMPLE
-    # Receive the dnslink entries for the dnslink.io domain.
-    > ${command} dnslink.io
+    # Recursively receive the dnslink entries for the dnslink.io domain.
+    > ${command} -r dnslink.io
     /ipfs/QmTgQDr3xNgKBVDVJtyGhopHoxW4EVgpkfbwE4qckxGdyo
 
     # Receive only the ipfs entry as text for dnslink.io
@@ -247,6 +249,7 @@ OPTIONS
                       url: https://cloudflare-dns.com:443/dns-query
     --debug, -d       Render log output to stderr in the specified format.
     --key, -k         Only render one particular dnslink key.
+    --recursive, -r   Lookup recursive dnslink entries.
 
     [1]: https://github.com/martinheidegger/doh-query/blob/main/endpoints.md
 

@@ -1,12 +1,13 @@
-import dnslink = require('@dnslink/js');
-import { Options, LogCode, InvalidityReason } from '@dnslink/js';
+import { resolveN, resolve, Options, LogCode, InvalidityReason, Result } from '@dnslink/js';
 import { AbortController } from '@consento/promise';
 import { Resolver } from 'dns';
 
 const c = new AbortController();
 
-const result = dnslink('some.domain');
-result.then(({ links, log }) => {
+resolveN('some.domain').then(next);
+resolve('some.domain').then(next);
+
+function next({ links, log }: Result) {
   const { ipfs, other }: { ipfs?: string, other?: string } = links;
   for (const logEntry of log) {
     const code: LogCode = logEntry.code;
@@ -36,7 +37,7 @@ result.then(({ links, log }) => {
       const reason: InvalidityReason = logEntry.reason;
     }
   }
-});
+}
 
 let o: Options = {};
 o = { signal: c.signal };
@@ -59,4 +60,10 @@ o = {
 o = {
   dns: true,
   doh: true
+};
+o = {
+  recursive: true
+};
+o = {
+  recursive: false
 };

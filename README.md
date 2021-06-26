@@ -11,10 +11,10 @@ You can use dnslink both as code and as an CLI tool.
 Getting started with the dnslink in a jiffy:
 
 ```javascript
-const dnslink = require('@dnslink/js')
+const { resolveN } = require('@dnslink/js')
 
 // assumes top-level await
-const { links, path, log } = await dnslink('dnslink.dev/abcd?foo=bar')
+const { links, path, log } = await resolveN('dnslink.dev/abcd?foo=bar')
 
 // `links` is an object containing given links for the different keys
 links.ipfs === 'QmTg....yomU'
@@ -45,7 +45,7 @@ doh = 'google' // Use the "google" endpoint of above list ↑
 doh = 'https://cloudflare-dns.com/dns-query' // Use a custom endpoint
 doh = ['google', 'cloudflare'] // Use one of two specified endpoints at random
 
-await dnslink('dnslink.dev', {
+await resolveN('dnslink.dev', {
   signal, // AbortSignal that you can use to abort the request
   timeout: 1000, // (optional) timeout for the operation
   dns, // (optional, default=false) dns can not be used in the browser!
