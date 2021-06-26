@@ -113,6 +113,7 @@ async function resolveDnslink (domain, options, log) {
   if (found.dns) {
     const validated = validateDomain(found.dns.value)
     if (validated.error) {
+      delete found.dns
       log.push(validated.error)
     } else {
       for (const [key, { entry }] of Object.entries(found)) {
