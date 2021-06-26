@@ -100,9 +100,16 @@ function relevantURLParts (input) {
 }
 
 async function resolveDnslink (domain, options, log) {
-  const dnslinkEntries = (await resolveTxt(domain, options))
-    .reduce((combined, array) => combined.concat(array), [])
-    .filter(entry => entry.startsWith(TXT_PREFIX))
+  return resolveTxtEntries(
+    domain,
+    options,
+    (await resolveTxt(domain, options)).reduce((combined, array) => combined.concat(array), []),
+    log
+  )
+}
+
+function resolveTxtEntries (domain, options, txtEntries, log) {
+  const dnslinkEntries = txtEntries.filter(entry => entry.startsWith(TXT_PREFIX))
 
   if (dnslinkEntries.length === 0 && domain.startsWith(DNS_PREFIX)) {
     return {
