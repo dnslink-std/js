@@ -98,7 +98,7 @@ const outputs = {
       }
       if (debug) {
         for (const logEntry of log) {
-          err.write(`[${logEntry.code}] domain=${logEntry.domain} ${logEntry.pathname ? `pathname=${logEntry.pathname}` : ''} ${logEntry.search ? `search=${renderSearch(logEntry.search)}` : ''} ${logEntry.entry ? `error=${logEntry.entry}` : ''} ${logEntry.reason ? `(${logEntry.reason})` : ''}\n`)
+          err.write(`[${logEntry.code}] domain=${logEntry.domain}${logEntry.pathname ? ` pathname=${logEntry.pathname}` : ''}${logEntry.search ? ` search=${renderSearch(logEntry.search)}` : ''}${logEntry.entry ? ` entry=${logEntry.entry}` : ''}${logEntry.reason ? ` (${logEntry.reason})` : ''}\n`)
         }
       }
     }
@@ -129,9 +129,7 @@ const outputs = {
         for (const logEntry of log) {
           if (this.firstErr) {
             this.firstErr = false
-            if (debug) {
-              err.write('domain,pathname,search,code,entry,reason\n')
-            }
+            err.write('domain,pathname,search,code,entry,reason\n')
           }
           err.write(`${csv(logEntry.domain)},${csv(logEntry.pathname)},${csv(renderSearch(logEntry.search))},${csv(logEntry.code)},${csv(logEntry.entry)},${csv(logEntry.reason)}\n`)
         }
