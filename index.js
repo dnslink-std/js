@@ -78,10 +78,10 @@ function validateDomain (input) {
 }
 
 function relevantURLParts (input) {
-  const url = new URL(input, 'xo://')
+  const url = new URL(input, 'ftp://_')
   let domain
   let pathname
-  if (url.hostname) {
+  if (url.hostname !== '_') {
     domain = url.hostname
     if (url.pathname) {
       pathname = url.pathname
