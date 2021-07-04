@@ -20,10 +20,12 @@ export enum InvalidityReason {
   keyMissing = 'KEY_MISSING',
   noValue = 'NO_VALUE',
 }
-export interface DomainEntry {
-  domain: string;
+export interface PathEntry {
   pathname?: string;
-  search?: { [key: string]: string[]  };
+  search?: { [key: string]: string [] };
+}
+export interface DomainEntry extends PathEntry {
+  domain: string;
 }
 export interface Resolve extends DomainEntry {
   code: LogCode.resolve;
@@ -59,10 +61,7 @@ export interface UnusedEntry {
 export type LogEntry = Resolve | Redirect | Conflict | InvalidEntry | EndlessRedirects | InvalidRedirect | TooManyRedirects | UnusedEntry | RecursiveDNSlinkPrefix;
 export interface Result {
   links: { [key: string]: string; };
-  path: {
-    pathname?: string,
-    search?: { [key: string]: string [] }
-  };
+  path: PathEntry[];
   log: LogEntry[];
 }
 type MaybeArray<T> = T | T[];

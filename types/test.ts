@@ -7,7 +7,7 @@ const c = new AbortController();
 resolveN('some.domain').then(next);
 resolve('some.domain').then(next);
 
-function next({ links, log }: Result) {
+function next({ links, path, log }: Result) {
   const { ipfs, other }: { ipfs?: string, other?: string } = links;
   for (const logEntry of log) {
     const code: LogCode = logEntry.code;
@@ -35,6 +35,15 @@ function next({ links, log }: Result) {
     }
     if (logEntry.code === LogCode.invalidEntry) {
       const reason: InvalidityReason = logEntry.reason;
+    }
+  }
+  for (const entry of path) {
+    const pathname: string | undefined = entry.pathname;
+    const search = entry.search;
+    if (search !== undefined) {
+      for (const key in search) {
+        const entries: string[] = search[key];
+      }
     }
   }
 }
