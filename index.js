@@ -21,10 +21,10 @@ const InvalidityReason = Object.freeze({
 
 module.exports = Object.freeze({
   resolve: function dnslink (domain, options = {}) {
-    return wrapTimeout(async signal => dnslinkN(domain, { redirect: false, ...options, signal }), options)
+    return wrapTimeout(async signal => dnslinkN(domain, { recursive: false, lookupTXT: defaultLookupTXT, ...options, signal }), options)
   },
   resolveN: function dnslink (domain, options = {}) {
-    return wrapTimeout(async signal => dnslinkN(domain, { redirect: true, ...options, signal }), options)
+    return wrapTimeout(async signal => dnslinkN(domain, { recursive: true, lookupTXT: defaultLookupTXT, ...options, signal }), options)
   },
   LogCode: LogCode,
   InvalidityReason: InvalidityReason
@@ -119,7 +119,7 @@ function resolveTxtEntries (domain, options, txtEntries, log) {
     }
   }
   const found = processEntries(dnslinkEntries, log)
-  if (options.redirect && found.dns) {
+  if (options.recursive && found.dns) {
     const validated = validateDomain(found.dns.value)
     if (validated.error) {
       delete found.dns
