@@ -1,6 +1,5 @@
-import { resolveN, resolve, Options, LogCode, InvalidityReason, Result } from '@dnslink/js';
+import { resolveN, resolve, Options, LogCode, InvalidityReason, Result, LookupOptions } from '@dnslink/js';
 import { AbortController } from '@consento/promise';
-import { Resolver } from 'dns';
 
 const c = new AbortController();
 
@@ -13,7 +12,6 @@ function next({ links, path, log }: Result) {
     const code: LogCode = logEntry.code;
     /* tslint:disable:prefer-switch */
     if (
-      logEntry.code === LogCode.conflictEntry ||
       logEntry.code === LogCode.invalidEntry ||
       logEntry.code === LogCode.unusedEntry
     ) {
@@ -52,27 +50,22 @@ let o: Options = {};
 o = { signal: c.signal };
 o = { timeout: 1000 };
 o = {
-  dns: true
-};
-o = {
-  dns: new Resolver()
-};
-o = {
-  dns: '127.0.0.1:1234'
-};
-o = {
-  doh: true
-};
-o = {
-  doh: [{ host: '127.0.0.1', port: 1234 }]
-};
-o = {
-  dns: true,
-  doh: true
-};
-o = {
   recursive: true
 };
 o = {
   recursive: false
+};
+
+let lo: LookupOptions = {};
+lo = {
+  retries: 5
+};
+lo = {
+  endpoints: 'doh'
+};
+lo = {
+  endpoints: 'dns'
+};
+lo = {
+  endpoints: ['udp://1.1.1.1']
 };

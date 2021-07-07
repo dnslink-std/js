@@ -1,13 +1,11 @@
 /// <reference types="node" />
 
-import { Endpoint } from 'doh-query';
-import { Resolver } from 'dns';
+import { Options as DNSOptions } from 'dns-query';
 import { TimeoutOptions } from '@consento/promise';
 
 export enum LogCode {
   redirect = 'REDIRECT',
   resolve = 'RESOLVE',
-  conflictEntry = 'CONFLICT_ENTRY',
   invalidEntry = 'INVALID_ENTRY',
   endlessRedirect = 'ENDLESS_REDIRECT',
   invalidRedirect = 'INVALID_REDIRECT',
@@ -45,10 +43,6 @@ export interface TooManyRedirects extends DomainEntry {
 export interface RecursiveDNSlinkPrefix extends DomainEntry  {
   code: LogCode.recursivePrefix;
 }
-export interface Conflict {
-  code: LogCode.conflictEntry;
-  entry: string;
-}
 export interface InvalidEntry {
   code: LogCode.invalidEntry;
   entry: string;
@@ -58,18 +52,20 @@ export interface UnusedEntry {
   code: LogCode.unusedEntry;
   entry: string;
 }
-export type LogEntry = Resolve | Redirect | Conflict | InvalidEntry | EndlessRedirects | InvalidRedirect | TooManyRedirects | UnusedEntry | RecursiveDNSlinkPrefix;
+export type LogEntry = Resolve | Redirect | InvalidEntry | EndlessRedirects | InvalidRedirect | TooManyRedirects | UnusedEntry | RecursiveDNSlinkPrefix;
 export interface Result {
-  links: { [key: string]: string; };
+  links: { [key: string]: string[]; };
   path: PathEntry[];
   log: LogEntry[];
 }
-type MaybeArray<T> = T | T[];
+export type LookupTXT = (domain: string, options: TimeoutOptions) => Promise<Array<{ data: string, ttl: number }>>;
+export type LookupOptions = Omit<DNSOptions, 'signal' | 'timeout'>;
 export interface Options extends TimeoutOptions {
   recursive?: boolean;
-  dns?: boolean | MaybeArray<string> | Resolver;
-  doh?: boolean | MaybeArray<string | Endpoint>;
+  lookupTXT?: LookupTXT;
 }
+export const defaultLookupTXT: LookupTXT;
+export function createLookupTXT(options: LookupOptions): LookupTXT;
 export function resolve(domain: string, options?: Options): Promise<Result>;
 export function resolveN(domain: string, options?: Options): Promise<Result>;
 

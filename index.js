@@ -1,11 +1,11 @@
 const { wrapTimeout } = require('@consento/promise/wrapTimeout')
 const { bubbleAbort } = require('@consento/promise/bubbleAbort')
+const { query } = require('dns-query')
 const DNS_PREFIX = '_dnslink.'
 const TXT_PREFIX = 'dnslink='
 const LogCode = Object.freeze({
   redirect: 'REDIRECT',
   resolve: 'RESOLVE',
-  conflictEntry: 'CONFLICT_ENTRY',
   invalidEntry: 'INVALID_ENTRY',
   endlessRedirect: 'ENDLESS_REDIRECT',
   invalidRedirect: 'INVALID_REDIRECT',
@@ -19,6 +19,40 @@ const InvalidityReason = Object.freeze({
   noValue: 'NO_VALUE'
 })
 
+function createLookupTXT (baseOptions) {
+  return (domain, options = {}) => {
+    const q = {
+      questions: [{
+        type: 'TXT',
+        name: domain
+      }]
+    }
+    options = {
+      ...baseOptions,
+      signal: options.signal,
+      timeout: options.timeout || 7500
+    }
+    return query(q, options)
+      .then(data =>
+        (data.answers || []).map(answer => ({
+          data: combineTXT(answer.data)
+        }))
+      )
+  }
+}
+
+function combineTXT (data) {
+  if (typeof data === 'string') {
+    return data
+  }
+  if (Array.isArray(data)) {
+    return data.map(combineTXT).join('')
+  }
+  return data.toString()
+}
+
+const defaultLookupTXT = createLookupTXT({})
+
 module.exports = Object.freeze({
   resolve: function dnslink (domain, options = {}) {
     return wrapTimeout(async signal => dnslinkN(domain, { recursive: false, lookupTXT: defaultLookupTXT, ...options, signal }), options)
@@ -26,6 +60,8 @@ module.exports = Object.freeze({
   resolveN: function dnslink (domain, options = {}) {
     return wrapTimeout(async signal => dnslinkN(domain, { recursive: true, lookupTXT: defaultLookupTXT, ...options, signal }), options)
   },
+  defaultLookupTXT,
+  createLookupTXT,
   LogCode: LogCode,
   InvalidityReason: InvalidityReason
 })
@@ -105,14 +141,13 @@ async function resolveDnslink (domain, options, log) {
   return resolveTxtEntries(
     domain,
     options,
-    (await resolveTxt(domain, options)).reduce((combined, array) => combined.concat(array), []),
+    await options.lookupTXT(domain, options),
     log
   )
 }
 
 function resolveTxtEntries (domain, options, txtEntries, log) {
-  const dnslinkEntries = txtEntries.filter(entry => entry.startsWith(TXT_PREFIX))
-
+  const dnslinkEntries = txtEntries.filter(entry => entry.data.startsWith(TXT_PREFIX))
   if (dnslinkEntries.length === 0 && domain.startsWith(DNS_PREFIX)) {
     return {
       redirect: { domain: domain.substr(DNS_PREFIX.length) }
@@ -120,64 +155,48 @@ function resolveTxtEntries (domain, options, txtEntries, log) {
   }
   const found = processEntries(dnslinkEntries, log)
   if (options.recursive && found.dns) {
-    const validated = validateDomain(found.dns.value)
-    if (validated.error) {
-      delete found.dns
-      log.push(validated.error)
-    } else {
-      for (const [key, { entry }] of Object.entries(found)) {
-        if (key === 'dns') continue
-        log.push({ code: LogCode.unusedEntry, entry })
+    let validated
+    while (validated === undefined && found.dns.length > 0) {
+      const dns = found.dns.shift()
+      validated = validateDomain(dns.value)
+      if (validated.error) {
+        log.push(validated.error)
+        validated = undefined
+      }
+    }
+    if (validated !== undefined) {
+      for (const results of Object.values(found)) {
+        for (const { data } of results) {
+          log.push({ code: LogCode.unusedEntry, entry: data })
+        }
       }
       return validated
+    } else {
+      delete found.dns
     }
   }
   const links = {}
-  for (const [key, { value }] of Object.entries(found)) {
-    links[key] = value
+  for (const [key, entries] of Object.entries(found)) {
+    links[key] = entries.map(({ value }) => value).sort()
   }
   return { links }
-}
-
-let dohQuery
-let dnsQuery
-
-async function resolveTxt (domain, options) {
-  const { doh, dns } = options
-  if (!dns || (doh && Math.random() > 0.5)) {
-    if (dohQuery === undefined) {
-      dohQuery = require('doh-query').query
-    }
-    const { answers } = await dohQuery({ questions: [{ type: 'TXT', name: domain }] }, {
-      signal: options.signal,
-      endpoints: doh
-    })
-    return answers
-      .map(entry => Object.values(entry.data).map(entry => entry.toString()))
-  }
-  if (dnsQuery === undefined) {
-    dnsQuery = require('./query-txt.node.js')
-  }
-  return dnsQuery(domain, options)
 }
 
 function processEntries (dnslinkEntries, log) {
   const found = {}
   for (const entry of dnslinkEntries) {
-    const validated = validateDNSLinkEntry(entry)
+    const validated = validateDNSLinkEntry(entry.data)
     if (validated.error !== undefined) {
-      log.push({ code: LogCode.invalidEntry, entry, reason: validated.error })
+      log.push({ code: LogCode.invalidEntry, entry: entry.data, reason: validated.error })
       continue
     }
     const { key, value } = validated
-    const prev = found[key]
-    if (!prev || prev.value > value) {
-      if (prev) {
-        log.push({ code: LogCode.conflictEntry, entry: prev.entry })
-      }
-      found[key] = { value, entry }
+    const link = { value, data: entry.data }
+    const list = found[key]
+    if (list) {
+      list.push(link)
     } else {
-      log.push({ code: LogCode.conflictEntry, entry })
+      found[key] = [link]
     }
   }
   return found

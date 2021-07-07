@@ -11,13 +11,13 @@ You can use dnslink both as code and as an CLI tool.
 Getting started with the dnslink in a jiffy:
 
 ```javascript
-const { resolveN } = require('@dnslink/js')
+const { resolveN, createLookupTXT } = require('@dnslink/js')
 
 // assumes top-level await
 const { links, path, log } = await resolveN('dnslink.dev/abcd?foo=bar')
 
 // `links` is an object containing given links for the different keys
-links.ipfs === 'QmTg....yomU'
+links.ipfs === ['QmTg....yomU']
 
 // The `log` is always an Array and contains a list of log entries
 // that were should help to trace back how the linked data was resolved.
@@ -35,27 +35,23 @@ path == [{
 You can also pass a set of options: 
 
 ```javascript
-let dns = true // Use the system dns service
-dns = '1.1.1.1' // DNS server to use
-dns = ['1.1.1.1', '1.0.0.1'] // User different servers as fallback
-dns = new (require('dns').Resolver)() // Use a custom resolver. This may speed up things if you do many requests
-
-let doh = true // Use one random of https://github.com/martinheidegger/doh-query/blob/main/endpoints.md endpoints
-doh = 'google' // Use the "google" endpoint of above list ↑
-doh = 'https://cloudflare-dns.com/dns-query' // Use a custom endpoint
-doh = ['google', 'cloudflare'] // Use one of two specified endpoints at random
+let endpoints // custom endpoints
+endpoints = 'dns' // Use the system default dns servers to resolve (Node.js only!)
+endpoints = [`udp://1.1.1.1`] // DNS server endpoint
+endpoints = 'doh' // Use any of the given default https://github.com/martinheidegger/doh-query/blob/main/endpoints.md
+endpoints = ['google'] // Use the "google" endpoint of above list ↑
+endpoints = ['https://cloudflare-dns.com/dns-query'] // Use a custom DoH endpoin
+// More about ↑ here: https://github.com/martinheidegger/dns-query#string-endpoints
 
 await resolveN('dnslink.dev', {
   signal, // AbortSignal that you can use to abort the request
   timeout: 1000, // (optional) timeout for the operation
-  dns, // (optional, default=false) dns can not be used in the browser!
-  doh // (optional, default=!dns)
+  lookupTXT: /* (optional) */ createLookupTXT(
+    retries: 3, // (optional, default=5)
+    endpoints // (optional, defaults )
+  )
 })
 ```
-
-- Without `dns` and `doh` specified, `doh` will be used as it works both in Node and browsers.
-- With `dns` and `doh` specified it will use one mode at random. With that mode it will use one of
-    the given "endpoints" for that mode at random.
 
 ## Possible log statements
 
@@ -75,7 +71,6 @@ each containing their contribution to the path.
 |--------------------------|----------------------------------------------------------------------|-------------------------------------|
 | RESOLVE                  | This domain name will be used for resolving.                         | `.domain`, (`.pathname`, `.search`) |
 | REDIRECT                 | Redirecting away from the specified domain name.                     | `.domain`, (`.pathname`, `.search`) |
-| CONFLICT_ENTRY           | Multiple entries for a key were found and an entry has been ignored. | `.entry`                            |
 | INVALID_ENTRY            | A TXT entry with `dnslink=` prefix has formatting errors.            | `.entry`, `.reason`                 |
 | RECURSIVE_DNSLINK_PREFIX | The hostname requested contains multiple `_dnslink` prefixes.        |                                     |
 | UNUSED_ENTRY             | An entry is unused because a redirect overrides it.                  | `.entry`                            |
@@ -96,15 +91,20 @@ dnslink - resolve dns links in TXT records
 
 USAGE
     dnslink [--help] [--format=json|text|csv] [--key=<key>] [--debug] \
-        [--doh[=<server>]] [--dns[=<server>]] <hostname> [...<hostname>]
+        [--dns] [--doh] [--endpoint[=<endpoint>]] [--recursive] \
+        <hostname> [...<hostname>]
 
 EXAMPLE
-    # Receive the dnslink entries for the dnslink.io domain.
-    > dnslink dnslink.io
+    # Recursively receive the dnslink entries for the dnslink.io domain.
+    > dnslink -r dnslink.io
     /ipfs/QmTgQDr3xNgKBVDVJtyGhopHoxW4EVgpkfbwE4qckxGdyo
 
     # Receive only the ipfs entry as text for dnslink.io
     > dnslink -k=ipfs dnslink.io
+    QmTgQDr3xNgKBVDVJtyGhopHoxW4EVgpkfbwE4qckxGdyo
+
+    # Receive only the ipfs entry as text for dnslink.io using DNS
+    > dnslink -k=ipfs --dns dnslink.io
     QmTgQDr3xNgKBVDVJtyGhopHoxW4EVgpkfbwE4qckxGdyo
 
     # Receive all dnslink entries for multiple domains as csv
@@ -126,28 +126,26 @@ EXAMPLE
         2>dnslink-io.log.csv
 
 OPTIONS
-    --help, -h        Show this help.
-    --version, -v     Show the version of this command.
-    --format, -f      Output format json, text or csv (default=json)
-    --dns[=<server>]  Specify a dns server to use. If you don't specify a
-                      server it will use the system dns service. As server you
-                      can specify a domain with port: 1.1.1.1:53
-    --doh[=<server>]  Specify a dns-over-https server to use. If you don't
-                      specify a server it will use one of the doh servers of
-                      the doh-query implementation[1]. You can specify a server
-                      either by the  doh-query name (e.g. cloudflare) or as an
-                      url: https://cloudflare-dns.com:443/dns-query
-    --debug, -d       Render log output to stderr in the specified format.
-    --key, -k         Only render one particular dnslink key.
+    --help, -h            Show this help.
+    --version, -v         Show the version of this command.
+    --format, -f          Output format json, text or csv (default=json)
+    --dns                 Use one of default dns endpoints.
+    --doh                 Use one of default doh endpoints.
+    --endpoint=<server>   Specify a dns or doh server to use. If more than
+                          one endpoint is specified it will use one of the
+                          specified at random. More about specifying
+                          servers in the dns-query docs: [1]
+    --debug, -d           Render log output to stderr in the specified format.
+    --key, -k             Only render one particular dnslink key.
+    --recursive, -r       Lookup recursive dnslink entries.
 
-    [1]: https://github.com/martinheidegger/doh-query/blob/main/endpoints.md
+    [1]: https://github.com/martinheidegger/dns-query#string-endpoints
 
 NOTE
-    If you specify multiple --doh or --dns endpoints, it will at random
-    choose either dns or doh as basic mode of operation and use the given
-    endpoints for that mode at random.
+    If you specify --dns, --doh and --endpoint will be ignored. If you specify
+    --doh then --endpoint will be ignored.
 
-    Read more about it here: https://github.com/dnslink-std/js#readme
+    Read more about dnslink-js here: https://github.com/dnslink-std/js#readme
 ```
 
 ## License

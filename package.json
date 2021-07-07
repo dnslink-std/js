@@ -42,7 +42,7 @@
     "@consento/promise": "^1.0.7",
     "abort-controller": "^3.0.0",
     "array-shuffle": "^2.0.0",
-    "doh-query": "^0.6.1"
+    "dns-query": "^0.7.0"
   },
   "devDependencies": {
     "@dnslink/test": "^0.3.0",

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 const AbortController = require('abort-controller')
-const { resolve } = require('../index')
+const { resolve, createLookupTXT, defaultLookupTXT } = require('../index')
 const { version, homepage } = require('../package.json')
 
 const json = input => JSON.stringify(input)
@@ -83,17 +83,16 @@ const outputs = {
       const { debug, out, err, key: searchKey, domains } = this.options
       const prefix = domains.length > 1 ? `${domain}: ` : ''
       for (const key in links) {
-        let value = links[key]
-        for (const part of path) {
-          value += ` [${renderPath(part)}]`
-        }
-        if (searchKey) {
-          if (key !== searchKey) {
+        for (let value of links[key]) {
+          if (!searchKey) {
+            value = `/${key}/${value}`
+          } else if (key !== searchKey) {
             continue
           }
+          for (const part of path) {
+            value += `\t[path=${renderPath(part)}]`
+          }
           out.write(`${prefix}${value}\n`)
-        } else {
-          out.write(`${prefix}/${key}/${value}\n`)
         }
       }
       if (debug) {
@@ -123,7 +122,9 @@ const outputs = {
         if (searchKey && key !== searchKey) {
           continue
         }
-        out.write(`${csv(lookup)},${csv(key)},${csv(links[key])},${csv(path.map(renderPath).join(' → '))}\n`)
+        for (const value of links[key]) {
+          out.write(`${csv(lookup)},${csv(key)},${csv(value)},${csv(path.map(renderPath).join(' → '))}\n`)
+        }
       }
       if (debug) {
         for (const logEntry of log) {
@@ -172,12 +173,22 @@ module.exports = (command) => {
         out: process.stdout,
         err: process.stderr
       })
+      let lookupTXT
+      if (options.dns) {
+        lookupTXT = createLookupTXT({ endpoints: 'dns' })
+      } else if (options.doh) {
+        lookupTXT = createLookupTXT({ endpoints: 'doh' })
+      } else {
+        const endpoints = (options.endpoint || []).filter(endpoint => endpoint !== true)
+        if (endpoints.length > 0) {
+          lookupTXT = createLookupTXT({ endpoints })
+        }
+      }
       await Promise.all(domains.map(async (domain) => {
         output.write(domain, await resolve(domain, {
           recursive: !!(options.recursive || options.r),
           signal,
-          doh: options.doh,
-          dns: options.dns
+          lookupTXT: lookupTXT || defaultLookupTXT
         }))
       }))
       output.end()
@@ -203,7 +214,7 @@ function showHelp (command) {
 
 USAGE
     ${command} [--help] [--format=json|text|csv] [--key=<key>] [--debug] \\
-        [--doh[=<server>]] [--dns[=<server>]] [--recursive] \\
+        [--dns] [--doh] [--endpoint[=<endpoint>]] [--recursive] \\
         <hostname> [...<hostname>]
 
 EXAMPLE
@@ -213,6 +224,10 @@ EXAMPLE
 
     # Receive only the ipfs entry as text for dnslink.io
     > ${command} -k=ipfs dnslink.io
+    QmTgQDr3xNgKBVDVJtyGhopHoxW4EVgpkfbwE4qckxGdyo
+
+    # Receive only the ipfs entry as text for dnslink.io using DNS
+    > ${command} -k=ipfs --dns dnslink.io
     QmTgQDr3xNgKBVDVJtyGhopHoxW4EVgpkfbwE4qckxGdyo
 
     # Receive all dnslink entries for multiple domains as csv
@@ -234,29 +249,26 @@ EXAMPLE
         2>dnslink-io.log.csv
 
 OPTIONS
-    --help, -h        Show this help.
-    --version, -v     Show the version of this command.
-    --format, -f      Output format json, text or csv (default=json)
-    --dns[=<server>]  Specify a dns server to use. If you don't specify a
-                      server it will use the system dns service. As server you
-                      can specify a domain with port: 1.1.1.1:53
-    --doh[=<server>]  Specify a dns-over-https server to use. If you don't
-                      specify a server it will use one of the doh servers of
-                      the doh-query implementation[1]. You can specify a server
-                      either by the  doh-query name (e.g. cloudflare) or as an
-                      url: https://cloudflare-dns.com:443/dns-query
-    --debug, -d       Render log output to stderr in the specified format.
-    --key, -k         Only render one particular dnslink key.
-    --recursive, -r   Lookup recursive dnslink entries.
+    --help, -h            Show this help.
+    --version, -v         Show the version of this command.
+    --format, -f          Output format json, text or csv (default=json)
+    --dns                 Use one of default dns endpoints.
+    --doh                 Use one of default doh endpoints.
+    --endpoint=<server>   Specify a dns or doh server to use. If more than
+                          one endpoint is specified it will use one of the
+                          specified at random. More about specifying
+                          servers in the dns-query docs: [1]
+    --debug, -d           Render log output to stderr in the specified format.
+    --key, -k             Only render one particular dnslink key.
+    --recursive, -r       Lookup recursive dnslink entries.
 
-    [1]: https://github.com/martinheidegger/doh-query/blob/main/endpoints.md
+    [1]: https://github.com/martinheidegger/dns-query#string-endpoints
 
 NOTE
-    If you specify multiple --doh or --dns endpoints, it will at random
-    choose either dns or doh as basic mode of operation and use the given
-    endpoints for that mode at random.
+    If you specify --dns, --doh and --endpoint will be ignored. If you specify
+    --doh then --endpoint will be ignored.
 
-    Read more about it here: ${homepage}
+    Read more about dnslink-js here: ${homepage}
 
 dnslink-js@${version}`)
 }
