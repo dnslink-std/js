@@ -17,7 +17,8 @@ const { resolveN, createLookupTXT } = require('@dnslink/js')
 const { links, path, log } = await resolveN('dnslink.dev/abcd?foo=bar')
 
 // `links` is an object containing given links for the different keys
-links.ipfs === ['QmTg....yomU']
+// Each key contains a value and a ttl.
+links.ipfs === [{ value: 'QmTg....yomU', ttl: 60 }]
 
 // The `log` is always an Array and contains a list of log entries
 // that were should help to trace back how the linked data was resolved.
@@ -95,29 +96,34 @@ USAGE
         <hostname> [...<hostname>]
 
 EXAMPLE
+    # Recursively receive the dnslink entries for the t15.dnslink.io test-domain.
+    > dnslink t15.dnslink.dev
+    /dns/1.t15.dnslink.dev  [ttl=3600]
+    /ipfs/mnop      [ttl=3600]
+
     # Recursively receive the dnslink entries for the dnslink.io domain.
-    > dnslink -r dnslink.io
-    /ipfs/QmTgQDr3xNgKBVDVJtyGhopHoxW4EVgpkfbwE4qckxGdyo
+    > dnslink -r t15.dnslink.dev
+    /ipns/AANO      [ttl=3600]
 
     # Receive only the ipfs entry as text for dnslink.io
     > dnslink -k=ipfs dnslink.io
-    QmTgQDr3xNgKBVDVJtyGhopHoxW4EVgpkfbwE4qckxGdyo
+    bafkreidj5lipga46mwq4wdkrrmarjmppobvtsqssge6o5nhkyvsp6pom3u [ttl=60]
 
     # Receive only the ipfs entry as text for dnslink.io using DNS
     > dnslink -k=ipfs --dns dnslink.io
-    QmTgQDr3xNgKBVDVJtyGhopHoxW4EVgpkfbwE4qckxGdyo
+    bafkreidj5lipga46mwq4wdkrrmarjmppobvtsqssge6o5nhkyvsp6pom3u [ttl=60]
 
     # Receive all dnslink entries for multiple domains as csv
     > dnslink -f=csv dnslink.io ipfs.io
-    lookup,key,value,path
-    "dnslink.io","ipfs","QmTgQDr3xNgKBVDVJtyGhopHoxW4EVgpkfbwE4qckxGdyo",
-    "ipfs.io","ipns","website.ipfs.io",
+    lookup,key,value,ttl,path
+    "dnslink.io","ipfs","QmTgQDr3xNgKBVDVJtyGhopHoxW4EVgpkfbwE4qckxGdyo",60,
+    "ipfs.io","ipns","website.ipfs.io",60,
 
     # Receive ipfs entries for multiple domains as json
     > dnslink -f=json -k=ipfs dnslink.io website.ipfs.io
     [
-    {"lookup":"website.ipfs.io","links":{"ipfs":"bafybeiagozluzfopjadeigrjlsmktseozde2xc5prvighob7452imnk76a"},"path":[]}
-    ,{"lookup":"dnslink.io","links":{"ipfs":"QmTgQDr3xNgKBVDVJtyGhopHoxW4EVgpkfbwE4qckxGdyo"},"path":[]}
+    {"lookup":"website.ipfs.io","links":{"ipfs":[{"value":"bafybeiagozluzfopjadeigrjlsmktseozde2xc5prvighob7452imnk76a","ttl":32}]},"path":[]}
+    ,{"lookup":"dnslink.io","links":{"ipfs":[{"value":"QmTgQDr3xNgKBVDVJtyGhopHoxW4EVgpkfbwE4qckxGdyo","ttl":120}]},"path":[]}
     ]
 
     # Receive both the result and log and write the output to files

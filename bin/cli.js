@@ -83,16 +83,17 @@ const outputs = {
       const { debug, out, err, key: searchKey, domains } = this.options
       const prefix = domains.length > 1 ? `${domain}: ` : ''
       for (const key in links) {
-        for (let value of links[key]) {
+        for (let { value, ttl } of links[key]) {
           if (!searchKey) {
             value = `/${key}/${value}`
           } else if (key !== searchKey) {
             continue
           }
+          value += `\t[ttl=${ttl}`
           for (const part of path) {
             value += `\t[path=${renderPath(part)}]`
           }
-          out.write(`${prefix}${value}\n`)
+          out.write(`${prefix}${value}]\n`)
         }
       }
       if (debug) {
@@ -115,15 +116,15 @@ const outputs = {
       const { debug, out, err, key: searchKey } = this.options
       if (this.firstOut) {
         this.firstOut = false
-        out.write('lookup,key,value,path\n')
+        out.write('lookup,key,value,ttl,path\n')
       }
 
       for (const key in links) {
         if (searchKey && key !== searchKey) {
           continue
         }
-        for (const value of links[key]) {
-          out.write(`${csv(lookup)},${csv(key)},${csv(value)},${csv(path.map(renderPath).join(' → '))}\n`)
+        for (const { value, ttl } of links[key]) {
+          out.write(`${csv(lookup)},${csv(key)},${csv(value)},${csv(ttl)},${csv(path.map(renderPath).join(' → '))}\n`)
         }
       }
       if (debug) {
@@ -218,29 +219,34 @@ USAGE
         <hostname> [...<hostname>]
 
 EXAMPLE
+    # Recursively receive the dnslink entries for the t15.dnslink.io test-domain.
+    > ${command} t15.dnslink.dev
+    /dns/1.t15.dnslink.dev  [ttl=3600]
+    /ipfs/mnop      [ttl=3600]
+
     # Recursively receive the dnslink entries for the dnslink.io domain.
-    > ${command} -r dnslink.io
-    /ipfs/QmTgQDr3xNgKBVDVJtyGhopHoxW4EVgpkfbwE4qckxGdyo
+    > ${command} -r t15.dnslink.dev
+    /ipns/AANO      [ttl=3600]
 
     # Receive only the ipfs entry as text for dnslink.io
     > ${command} -k=ipfs dnslink.io
-    QmTgQDr3xNgKBVDVJtyGhopHoxW4EVgpkfbwE4qckxGdyo
+    bafkreidj5lipga46mwq4wdkrrmarjmppobvtsqssge6o5nhkyvsp6pom3u [ttl=60]
 
     # Receive only the ipfs entry as text for dnslink.io using DNS
     > ${command} -k=ipfs --dns dnslink.io
-    QmTgQDr3xNgKBVDVJtyGhopHoxW4EVgpkfbwE4qckxGdyo
+    bafkreidj5lipga46mwq4wdkrrmarjmppobvtsqssge6o5nhkyvsp6pom3u [ttl=60]
 
     # Receive all dnslink entries for multiple domains as csv
     > ${command} -f=csv dnslink.io ipfs.io
-    lookup,key,value,path
-    "dnslink.io","ipfs","QmTgQDr3xNgKBVDVJtyGhopHoxW4EVgpkfbwE4qckxGdyo",
-    "ipfs.io","ipns","website.ipfs.io",
+    lookup,key,value,ttl,path
+    "dnslink.io","ipfs","QmTgQDr3xNgKBVDVJtyGhopHoxW4EVgpkfbwE4qckxGdyo",60,
+    "ipfs.io","ipns","website.ipfs.io",60,
 
     # Receive ipfs entries for multiple domains as json
     > ${command} -f=json -k=ipfs dnslink.io website.ipfs.io
     [
-    {"lookup":"website.ipfs.io","links":{"ipfs":"bafybeiagozluzfopjadeigrjlsmktseozde2xc5prvighob7452imnk76a"},"path":[]}
-    ,{"lookup":"dnslink.io","links":{"ipfs":"QmTgQDr3xNgKBVDVJtyGhopHoxW4EVgpkfbwE4qckxGdyo"},"path":[]}
+    {"lookup":"website.ipfs.io","links":{"ipfs":[{"value":"bafybeiagozluzfopjadeigrjlsmktseozde2xc5prvighob7452imnk76a","ttl":32}]},"path":[]}
+    ,{"lookup":"dnslink.io","links":{"ipfs":[{"value":"QmTgQDr3xNgKBVDVJtyGhopHoxW4EVgpkfbwE4qckxGdyo","ttl":120}]},"path":[]}
     ]
 
     # Receive both the result and log and write the output to files

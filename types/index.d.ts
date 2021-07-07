@@ -54,7 +54,7 @@ export interface UnusedEntry {
 }
 export type LogEntry = Resolve | Redirect | InvalidEntry | EndlessRedirects | InvalidRedirect | TooManyRedirects | UnusedEntry | RecursiveDNSlinkPrefix;
 export interface Result {
-  links: { [key: string]: string[]; };
+  links: { [key: string]: Array<{ value: string, ttl: number }>; };
   path: PathEntry[];
   log: LogEntry[];
 }

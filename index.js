@@ -35,7 +35,8 @@ function createLookupTXT (baseOptions) {
     return query(q, options)
       .then(data =>
         (data.answers || []).map(answer => ({
-          data: combineTXT(answer.data)
+          data: combineTXT(answer.data),
+          ttl: answer.ttl
         }))
       )
   }
@@ -177,7 +178,7 @@ function resolveTxtEntries (domain, options, txtEntries, log) {
   }
   const links = {}
   for (const [key, entries] of Object.entries(found)) {
-    links[key] = entries.map(({ value }) => value).sort()
+    links[key] = entries.map(({ value, ttl }) => ({ value, ttl })).sort(sortByValue)
   }
   return { links }
 }
@@ -191,7 +192,7 @@ function processEntries (dnslinkEntries, log) {
       continue
     }
     const { key, value } = validated
-    const link = { value, data: entry.data }
+    const link = { value, ttl: entry.ttl, data: entry.data }
     const list = found[key]
     if (list) {
       list.push(link)
@@ -200,6 +201,12 @@ function processEntries (dnslinkEntries, log) {
     }
   }
   return found
+}
+
+function sortByValue (a, b) {
+  if (a.value < b.value) return -1
+  if (a.value > b.value) return 1
+  return 0
 }
 
 function validateDNSLinkEntry (entry) {
