@@ -68,9 +68,9 @@ module.exports = Object.freeze({
 })
 
 async function dnslinkN (domain, options) {
-  const validated = validateDomain(domain)
+  const validated = validateDomain({ value: domain })
   if (validated.error) {
-    return { links: {}, path: [], log: [validated.error] }
+    throw Object.assign(new Error(`Invalid input domain: ${domain}`), { code: validated.error.code })
   }
   let lookup = validated.redirect
   const log = []
@@ -101,20 +101,71 @@ async function dnslinkN (domain, options) {
 }
 
 function validateDomain (input) {
-  let { domain, pathname, search } = relevantURLParts(input)
+  let { domain, pathname, search } = relevantURLParts(input.value)
   if (domain.startsWith(DNS_PREFIX)) {
     domain = domain.substr(DNS_PREFIX.length)
     if (domain.startsWith(DNS_PREFIX)) {
       return { error: { code: LogCode.recursivePrefix, domain: `${DNS_PREFIX}${domain}`, pathname, search } }
     }
   }
-  if (domain.includes(' ')) {
-    return { error: { code: LogCode.invalidRedirect, domain, pathname, search } }
+  if (domain === '.' || !isFqdn(domain)) {
+    return { error: { code: LogCode.invalidRedirect, entry: input.data } }
+  }
+  if (domain.endsWith('.')) {
+    domain = domain.substr(0, domain.length - 1)
   }
   return { redirect: { domain: `${DNS_PREFIX}${domain}`, pathname, search } }
 }
 
+function isFqdn (str) {
+	if (str[str.length - 1] === '.') {
+    str = str.substring(0, str.length - 1);
+  }
+  if (!str) {
+    return false
+  }
+  const parts = str.split('.');
+  const tld = parts[parts.length - 1];
+
+  // disallow fqdns without tld
+  if (parts.length < 2) {
+    return false;
+  }
+
+  if (!/^([a-z\u00a1-\uffff]{2,}|xn[a-z0-9-]{2,})$/i.test(tld)) {
+    return false;
+  }
+
+  // disallow spaces && special characers
+  if (/[\s\u2002-\u200B\u202F\u205F\u3000\uFEFF\uDB40\uDC20\u00A9\uFFFD]/.test(tld)) {
+    return false;
+  }
+
+  // disallow all numbers
+  if (parts.every(part => /^0-9$/.test(part))) {
+    return false
+  }
+
+  return parts.every((part) => {
+    if (part.length > 63) {
+      return false;
+    }
+
+    if (!/^[a-z\u00a1-\u00ff0-9-]+$/i.test(part)) {
+      return false;
+    }
+
+    // disallow parts starting or ending with hyphen
+    if (/^-|-$/.test(part)) {
+      return false;
+    }
+
+    return true;
+  });
+}
+
 function relevantURLParts (input) {
+  input = input.trim()
   const url = new URL(input, 'ftp://_')
   let domain
   let pathname
@@ -123,11 +174,15 @@ function relevantURLParts (input) {
     if (url.pathname) {
       pathname = url.pathname
     }
+  } else if (input.startsWith('/')) {
+    domain = ''
+    pathname = url.pathname
   } else if (url.pathname) {
     const parts = /^\/([^/]*)(\/.*)?/.exec(url.pathname)
     domain = parts[1]
     pathname = parts[2]
   }
+  domain = decodeURIComponent(domain)
   let search
   for (const key of url.searchParams.keys()) {
     if (search === undefined) {
@@ -156,24 +211,25 @@ function resolveTxtEntries (domain, options, txtEntries, log) {
   }
   const found = processEntries(dnslinkEntries, log)
   if (options.recursive && found.dns) {
-    let validated
-    while (validated === undefined && found.dns.length > 0) {
-      const dns = found.dns.shift()
-      validated = validateDomain(dns.value)
+    let redirect
+    for (const dns of found.dns) {
+      const validated = validateDomain(dns)
       if (validated.error) {
         log.push(validated.error)
-        validated = undefined
+      } else if (redirect === undefined) {
+        redirect = validated
+      } else {
+        log.push({ code: LogCode.unusedEntry, entry: dns.data })
       }
     }
-    if (validated !== undefined) {
+    delete found.dns
+    if (redirect !== undefined) {
       for (const results of Object.values(found)) {
         for (const { data } of results) {
           log.push({ code: LogCode.unusedEntry, entry: data })
         }
       }
-      return validated
-    } else {
-      delete found.dns
+      return redirect
     }
   }
   const links = {}
