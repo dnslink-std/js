@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-const AbortController = require('abort-controller')
+const { AbortController } = require('@consento/promise')
 const { resolve, createLookupTXT, defaultLookupTXT } = require('../index')
 const { version, homepage } = require('../package.json')
 
