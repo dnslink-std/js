@@ -34,8 +34,9 @@ export interface Redirect extends DomainEntry {
 export interface EndlessRedirects extends DomainEntry {
   code: LogCode.endlessRedirect;
 }
-export interface InvalidRedirect extends DomainEntry {
+export interface InvalidRedirect {
   code: LogCode.invalidRedirect;
+  entry: string;
 }
 export interface TooManyRedirects extends DomainEntry {
   code: LogCode.tooManyRedirects;

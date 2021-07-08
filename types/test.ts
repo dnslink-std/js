@@ -13,13 +13,13 @@ function next({ links, path, log }: Result) {
     /* tslint:disable:prefer-switch */
     if (
       logEntry.code === LogCode.invalidEntry ||
+      logEntry.code === LogCode.invalidRedirect ||
       logEntry.code === LogCode.unusedEntry
     ) {
       const entry: string = logEntry.entry;
     }
     if (
       logEntry.code === LogCode.endlessRedirect ||
-      logEntry.code === LogCode.invalidRedirect ||
       logEntry.code === LogCode.tooManyRedirects
     ) {
       const domain: string = logEntry.domain;
