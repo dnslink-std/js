@@ -118,27 +118,27 @@ function validateDomain (input) {
 }
 
 function isFqdn (str) {
-	if (str[str.length - 1] === '.') {
-    str = str.substring(0, str.length - 1);
+  if (str[str.length - 1] === '.') {
+    str = str.substring(0, str.length - 1)
   }
   if (!str) {
     return false
   }
-  const parts = str.split('.');
-  const tld = parts[parts.length - 1];
+  const parts = str.split('.')
+  const tld = parts[parts.length - 1]
 
   // disallow fqdns without tld
   if (parts.length < 2) {
-    return false;
+    return false
   }
 
   if (!/^([a-z\u00a1-\uffff]{2,}|xn[a-z0-9-]{2,})$/i.test(tld)) {
-    return false;
+    return false
   }
 
   // disallow spaces && special characers
-  if (/[\s\u2002-\u200B\u202F\u205F\u3000\uFEFF\uDB40\uDC20\u00A9\uFFFD]/.test(tld)) {
-    return false;
+  if (/[\s\u2002-\u200B\u202F\u205F\u3000\uFEFF\uDB40\uDC20\u00A9\uFFFD]/u.test(tld)) {
+    return false
   }
 
   // disallow all numbers
@@ -148,20 +148,20 @@ function isFqdn (str) {
 
   return parts.every((part) => {
     if (part.length > 63) {
-      return false;
+      return false
     }
 
     if (!/^[a-z\u00a1-\u00ff0-9-]+$/i.test(part)) {
-      return false;
+      return false
     }
 
     // disallow parts starting or ending with hyphen
     if (/^-|-$/.test(part)) {
-      return false;
+      return false
     }
 
-    return true;
-  });
+    return true
+  })
 }
 
 function relevantURLParts (input) {

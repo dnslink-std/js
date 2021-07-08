@@ -7,8 +7,10 @@ resolveN(process.argv[2], {
   lookupTXT: createLookupTXT({ endpoints: [`http://0.0.0.0:${port}/dns-query`] })
 }).then(
   result => console.log(JSON.stringify(result)),
-  error => console.log(JSON.stringify({ error: {
-    message: error.message,
-    code: error.code
-  }}))
+  error => console.log(JSON.stringify({
+    error: {
+      message: error.message,
+      code: error.code
+    }
+  }))
 )
