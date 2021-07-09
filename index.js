@@ -47,6 +47,9 @@ function combineTXT (data) {
     return data
   }
   if (Array.isArray(data)) {
+    if (data.every(Buffer.isBuffer)) {
+      return combineTXT(Buffer.concat(data))
+    }
     return data.map(combineTXT).join('')
   }
   return data.toString()
