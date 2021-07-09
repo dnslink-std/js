@@ -42,17 +42,29 @@ function createLookupTXT (baseOptions) {
   }
 }
 
+const decoder = new TextDecoder()
 function combineTXT (data) {
   if (typeof data === 'string') {
     return data
   }
   if (Array.isArray(data)) {
-    if (data.every(Buffer.isBuffer)) {
-      return combineTXT(Buffer.concat(data))
+    if (data.every(entry => entry instanceof Uint8Array)) {
+      return combineTXT(concatUint8Arrays(data))
     }
     return data.map(combineTXT).join('')
   }
-  return data.toString()
+  return decoder.decode(data)
+}
+
+function concatUint8Arrays (arrays) {
+  const len = arrays.reduce((len, entry) => len + entry.length, 0)
+  const result = new Uint8Array(len)
+  let offset = 0
+  for (const array of arrays) {
+    result.set(array, offset)
+    offset += array.length
+  }
+  return result
 }
 
 const defaultLookupTXT = createLookupTXT({})
