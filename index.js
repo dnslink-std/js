@@ -213,9 +213,9 @@ function resolveTxtEntries (domain, options, txtEntries, log) {
     }
   }
   const found = processEntries(dnslinkEntries, log)
-  if (options.recursive && found.dns) {
+  if (options.recursive && found.dnslink) {
     let redirect
-    for (const dns of found.dns) {
+    for (const dns of found.dnslink) {
       const validated = validateDomain(dns)
       if (validated.error) {
         log.push(validated.error)
@@ -225,7 +225,7 @@ function resolveTxtEntries (domain, options, txtEntries, log) {
         log.push({ code: LogCode.unusedEntry, entry: dns.data })
       }
     }
-    delete found.dns
+    delete found.dnslink
     if (redirect !== undefined) {
       for (const results of Object.values(found)) {
         for (const { data } of results) {
