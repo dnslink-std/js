@@ -11,10 +11,31 @@ You can use dnslink both as code and as an CLI tool.
 Getting started with the dnslink in a jiffy:
 
 ```javascript
-const { resolveN, createLookupTXT } = require('@dnslink/js')
+const { resolveN, createLookupTXT, RCodeError } = require('@dnslink/js')
 
 // assumes top-level await
-const { links, path, log } = await resolveN('dnslink.dev/abcd?foo=bar')
+let result
+try {
+  result = await resolveN('dnslink.dev/abcd?foo=bar')
+} catch (err) {
+  // Errors provided by DNS server
+  if (err instanceof RCodeError) {
+    err.rcode // Error code number following - https://www.iana.org/assignments/dns-parameters/dns-parameters.xhtml#dns-parameters-6
+    err.error // Error code name following (same list)
+    err.code // `RCODE_${err.code}
+    err.domain // Domain lookup that resulted in the error
+    if (err.rcode === 3) {
+      // NXDomain = Domain not found; most relevant error
+    }
+  } else {
+    // A variety other errors may be thrown as well. Possible causes include, but are not limited to:
+    // - Invalid input
+    // - Timeouts / aborts
+    // - Networking errors
+    // - Incompatible dns packets provided by server
+  }
+}
+const { links, path, log } = result
 
 // `links` is an object containing given links for the different keys
 // Each key contains a value and a ttl.

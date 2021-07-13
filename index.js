@@ -18,6 +18,43 @@ const InvalidityReason = Object.freeze({
   keyMissing: 'KEY_MISSING',
   noValue: 'NO_VALUE'
 })
+const RCODE = require('dns-packet/rcodes')
+const RCODE_ERROR = {
+  1: 'FormErr',
+  2: 'ServFail',
+  3: 'NXDomain',
+  4: 'NotImp',
+  5: 'Refused',
+  6: 'YXDomain',
+  7: 'YXRRSet',
+  8: 'NXRRSet',
+  9: 'NotAuth',
+  10: 'NotZone',
+  11: 'DSOTYPENI'
+}
+const RCODE_MESSAGE = {
+  // https://www.iana.org/assignments/dns-parameters/dns-parameters.xhtml#dns-parameters-6
+  1: 'The name server was unable to interpret the query.',
+  2: 'The name server was unable to process this query due to a problem with the name server.',
+  3: 'Non-Existent Domain.',
+  4: 'The name server does not support the requested kind of query.',
+  5: 'The name server refuses to perform the specified operation for policy reasons.',
+  6: 'Name Exists when it should not.',
+  7: 'RR Set Exists when it should not.',
+  8: 'RR Set that should exist does not.',
+  9: 'Server Not Authoritative for zone  / Not Authorized.',
+  10: 'Name not contained in zone.',
+  11: 'DSO-TYPE Not Implemented.'
+}
+class RCodeError extends Error {
+  constructor (rcode, domain) {
+    super(`${(RCODE_MESSAGE[rcode] || `Undefined error.`)} (rcode=${rcode}${RCODE_ERROR[rcode] ? `, error=${RCODE_ERROR[rcode]}` : ''}, domain=${domain})`)
+    this.rcode = rcode
+    this.code = `RCODE_${rcode}`
+    this.error = RCODE_ERROR[rcode]
+    this.domain = domain
+  }
+}
 
 function createLookupTXT (baseOptions) {
   return (domain, options = {}) => {
@@ -33,12 +70,16 @@ function createLookupTXT (baseOptions) {
       timeout: options.timeout || 7500
     }
     return query(q, options)
-      .then(data =>
-        (data.answers || []).map(answer => ({
+      .then(data => {
+        const rcode = RCODE.toRcode(data.rcode)
+        if (rcode !== 0) {
+          throw new RCodeError(rcode, domain)
+        }
+        return (data.answers || []).map(answer => ({
           data: combineTXT(answer.data),
           ttl: answer.ttl
         }))
-      )
+      })
   }
 }
 
@@ -76,6 +117,7 @@ module.exports = Object.freeze({
   resolveN: function dnslink (domain, options = {}) {
     return wrapTimeout(async signal => dnslinkN(domain, { recursive: true, lookupTXT: defaultLookupTXT, ...options, signal }), options)
   },
+  RCodeError,
   defaultLookupTXT,
   createLookupTXT,
   LogCode: LogCode,
@@ -92,7 +134,19 @@ async function dnslinkN (domain, options) {
   const chain = []
   while (true) {
     const { domain } = lookup
-    const { links, redirect } = await resolveDnslink(domain, options, log)
+    let links
+    let redirect
+    try {
+      const resolved = await resolveDnslink(domain, options, log)
+      links = resolved.links
+      redirect = resolved.redirect
+    } catch (err) {
+      if (err.rcode === 3 && domain.startsWith(DNS_PREFIX)) {
+        redirect = { domain: domain.substr(DNS_PREFIX.length) }
+      } else {
+        throw err
+      }
+    }
     bubbleAbort(options.signal)
     const resolve = { code: LogCode.resolve, ...lookup }
     if (!redirect) {
@@ -219,11 +273,6 @@ async function resolveDnslink (domain, options, log) {
 
 function resolveTxtEntries (domain, options, txtEntries, log) {
   const dnslinkEntries = txtEntries.filter(entry => entry.data.startsWith(TXT_PREFIX))
-  if (dnslinkEntries.length === 0 && domain.startsWith(DNS_PREFIX)) {
-    return {
-      redirect: { domain: domain.substr(DNS_PREFIX.length) }
-    }
-  }
   const found = processEntries(dnslinkEntries, log)
   if (options.recursive && found.dnslink) {
     let redirect

@@ -69,5 +69,11 @@ export const defaultLookupTXT: LookupTXT;
 export function createLookupTXT(options: LookupOptions): LookupTXT;
 export function resolve(domain: string, options?: Options): Promise<Result>;
 export function resolveN(domain: string, options?: Options): Promise<Result>;
+export class RCodeError extends Error {
+  code: string;
+  rcode: number;
+  error: string;
+  domain: string;
+}
 
 export {};

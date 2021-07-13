@@ -1,10 +1,23 @@
-import { resolveN, resolve, Options, LogCode, InvalidityReason, Result, LookupOptions } from '@dnslink/js';
+import { resolveN, resolve, Options, LogCode, InvalidityReason, Result, LookupOptions, RCodeError } from '@dnslink/js';
 import { AbortController } from '@consento/promise';
 
 const c = new AbortController();
 
 resolveN('some.domain').then(next);
-resolve('some.domain').then(next);
+resolve('some.domain').then(next).catch(
+  (err: Error) => {
+    if (err instanceof RCodeError) {
+      // $ExpectType string
+      err.code;
+      // $ExpectType number
+      err.rcode;
+      // $ExpectType string
+      err.domain;
+      // $ExpectType string
+      err.error;
+    }
+  }
+);
 
 function next({ links, path, log }: Result) {
   const { ipfs, other }: { ipfs?: string, other?: string } = links;
