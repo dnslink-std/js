@@ -155,7 +155,7 @@ EXAMPLE
 OPTIONS
     --help, -h            Show this help.
     --version, -v         Show the version of this command.
-    --format, -f          Output format json, text or csv (default=text)
+    --format, -f          Output format json, text, reduced or csv (default=text)
     --dns                 Use one of default dns endpoints.
     --doh                 Use one of default doh endpoints.
     --endpoint=<server>   Specify a dns or doh server to use. If more than

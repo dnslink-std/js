@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 const { AbortController } = require('@consento/promise')
-const { resolve, createLookupTXT, defaultLookupTXT } = require('../index')
+const { resolve, createLookupTXT, defaultLookupTXT, reducePath } = require('../index')
 const { version, homepage } = require('../package.json')
 
 const json = input => JSON.stringify(input)
@@ -92,6 +92,34 @@ const outputs = {
           value += `\t[ttl=${ttl}]`
           for (const part of path) {
             value += `\t[path=${renderPath(part)}]`
+          }
+          out.write(`${prefix}${value}\n`)
+        }
+      }
+      if (debug) {
+        for (const logEntry of log) {
+          err.write(`[${logEntry.code}] domain=${logEntry.domain}${logEntry.pathname ? ` pathname=${logEntry.pathname}` : ''}${logEntry.search ? ` search=${renderSearch(logEntry.search)}` : ''}${logEntry.entry ? ` entry=${logEntry.entry}` : ''}${logEntry.reason ? ` (${logEntry.reason})` : ''}\n`)
+        }
+      }
+    }
+
+    end () {}
+  },
+  reduced: class Reduced {
+    constructor (options) {
+      this.options = options
+    }
+
+    write (domain, { links, log, path }) {
+      const { debug, out, err, key: searchKey, domains } = this.options
+      const prefix = domains.length > 1 ? `${domain}: ` : ''
+      for (const key in links) {
+        for (let { value } of links[key]) {
+          value = reducePath(value, path)
+          if (!searchKey) {
+            value = `/${key}/${value}`
+          } else if (key !== searchKey) {
+            continue
           }
           out.write(`${prefix}${value}\n`)
         }
@@ -257,7 +285,7 @@ EXAMPLE
 OPTIONS
     --help, -h            Show this help.
     --version, -v         Show the version of this command.
-    --format, -f          Output format json, text or csv (default=text)
+    --format, -f          Output format json, text, reduced or csv (default=text)
     --dns                 Use one of default dns endpoints.
     --doh                 Use one of default doh endpoints.
     --endpoint=<server>   Specify a dns or doh server to use. If more than
