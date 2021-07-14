@@ -80,7 +80,7 @@ const outputs = {
     }
 
     write (domain, { links, log, path }) {
-      const { debug, out, err, key: searchKey, domains } = this.options
+      const { debug, out, err, key: searchKey, domains, first: firstKey } = this.options
       const prefix = domains.length > 1 ? `${domain}: ` : ''
       for (const key in links) {
         for (let { value, ttl } of links[key]) {
@@ -94,6 +94,9 @@ const outputs = {
             value += `\t[path=${renderPath(part)}]`
           }
           out.write(`${prefix}${value}\n`)
+          if (firstKey) {
+            break
+          }
         }
       }
       if (debug) {
@@ -111,9 +114,12 @@ const outputs = {
     }
 
     write (domain, { links, log, path }) {
-      const { debug, out, err, key: searchKey, domains } = this.options
+      const { debug, out, err, key: searchKey, domains, first: firstKey } = this.options
       const prefix = domains.length > 1 ? `${domain}: ` : ''
       for (const key in links) {
+        if (searchKey && key !== searchKey) {
+          continue
+        }
         for (let { value } of links[key]) {
           value = reducePath(value, path)
           if (!searchKey) {
@@ -122,6 +128,9 @@ const outputs = {
             continue
           }
           out.write(`${prefix}${value}\n`)
+          if (firstKey) {
+            break
+          }
         }
       }
       if (debug) {
@@ -141,7 +150,7 @@ const outputs = {
     }
 
     write (lookup, { links, log, path }) {
-      const { debug, out, err, key: searchKey } = this.options
+      const { debug, out, err, key: searchKey, first: firstKey } = this.options
       if (this.firstOut) {
         this.firstOut = false
         out.write('lookup,key,value,ttl,path\n')
@@ -153,6 +162,9 @@ const outputs = {
         }
         for (const { value, ttl } of links[key]) {
           out.write(`${csv(lookup)},${csv(key)},${csv(value)},${csv(ttl)},${csv(path.map(renderPath).join(' → '))}\n`)
+        }
+        if (firstKey) {
+          break
         }
       }
       if (debug) {
@@ -194,8 +206,10 @@ module.exports = (command) => {
       if (!OutputClass) {
         throw new Error(`Unexpected format ${format}`)
       }
-      const key = firstEntry(options.key) || firstEntry(options.k)
+      const first = firstEntry(options.first)
+      const key = first || firstEntry(options.key) || firstEntry(options.k)
       const output = new OutputClass({
+        first,
         key,
         debug: !!(options.debug || options.d),
         domains,
@@ -242,9 +256,9 @@ function showHelp (command) {
   console.log(`${command} - resolve dns links in TXT records
 
 USAGE
-    ${command} [--help] [--format=json|text|csv] [--key=<key>] [--debug] \\
-        [--dns] [--doh] [--endpoint[=<endpoint>]] [--non-recursive] \\
-        <hostname> [...<hostname>]
+    ${command} [--help] [--format=json|text|csv] [--dns] [--doh] [--debug] \\
+        [--key=<key>] [--first=<key>] [--endpoint[=<endpoint>]] \\
+        [--non-recursive] <hostname> [...<hostname>]
 
 EXAMPLE
     # Recursively receive the dnslink entries for the dnslink.io domain.
@@ -262,6 +276,10 @@ EXAMPLE
 
     # Receive only the ipfs entry as text for dnslink.io using DNS
     > ${command} -k=ipfs --dns dnslink.io
+    bafkreidj5lipga46mwq4wdkrrmarjmppobvtsqssge6o5nhkyvsp6pom3u [ttl=60]
+
+    # Receive only the first ipfs entry as text for dnslink.io using DNS
+    > ${command} --first=ipfs --dns dnslink.io
     bafkreidj5lipga46mwq4wdkrrmarjmppobvtsqssge6o5nhkyvsp6pom3u [ttl=60]
 
     # Receive all dnslink entries for multiple domains as csv
@@ -294,6 +312,7 @@ OPTIONS
                           servers in the dns-query docs: [1]
     --debug, -d           Render log output to stderr in the specified format.
     --key, -k             Only render one particular dnslink key.
+    --first               Only render the first of the defined dnslink key.
     --non-recursive, -nr  Lookup recursive dnslink entries.
 
     [1]: https://github.com/martinheidegger/dns-query#string-endpoints

@@ -112,9 +112,9 @@ You can get detailed help for the app by passing a `--help` option at the end:
 dnslink - resolve dns links in TXT records
 
 USAGE
-    dnslink [--help] [--format=json|text|csv] [--key=<key>] [--debug] \
-        [--dns] [--doh] [--endpoint[=<endpoint>]] [--non-recursive] \
-        <hostname> [...<hostname>]
+    dnslink [--help] [--format=json|text|csv] [--dns] [--doh] [--debug] \
+        [--key=<key>] [--first=<key>] [--endpoint[=<endpoint>]] \
+        [--non-recursive] <hostname> [...<hostname>]
 
 EXAMPLE
     # Recursively receive the dnslink entries for the dnslink.io domain.
@@ -132,6 +132,10 @@ EXAMPLE
 
     # Receive only the ipfs entry as text for dnslink.io using DNS
     > dnslink -k=ipfs --dns dnslink.io
+    bafkreidj5lipga46mwq4wdkrrmarjmppobvtsqssge6o5nhkyvsp6pom3u [ttl=60]
+
+    # Receive only the first ipfs entry as text for dnslink.io using DNS
+    > dnslink --first=ipfs --dns dnslink.io
     bafkreidj5lipga46mwq4wdkrrmarjmppobvtsqssge6o5nhkyvsp6pom3u [ttl=60]
 
     # Receive all dnslink entries for multiple domains as csv
@@ -164,6 +168,7 @@ OPTIONS
                           servers in the dns-query docs: [1]
     --debug, -d           Render log output to stderr in the specified format.
     --key, -k             Only render one particular dnslink key.
+    --first               Only render the first of the defined dnslink key.
     --non-recursive, -nr  Lookup recursive dnslink entries.
 
     [1]: https://github.com/martinheidegger/dns-query#string-endpoints
