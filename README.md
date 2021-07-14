@@ -176,8 +176,6 @@ OPTIONS
 NOTE
     If you specify --dns, --doh and --endpoint will be ignored. If you specify
     --doh then --endpoint will be ignored.
-
-    Read more about dnslink-js here: https://github.com/dnslink-std/js#readme
 ```
 
 ## License
