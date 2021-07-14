@@ -113,18 +113,18 @@ dnslink - resolve dns links in TXT records
 
 USAGE
     dnslink [--help] [--format=json|text|csv] [--key=<key>] [--debug] \
-        [--dns] [--doh] [--endpoint[=<endpoint>]] [--recursive] \
+        [--dns] [--doh] [--endpoint[=<endpoint>]] [--non-recursive] \
         <hostname> [...<hostname>]
 
 EXAMPLE
-    # Recursively receive the dnslink entries for the t15.dnslink.io test-domain.
-    > dnslink t15.dnslink.dev
-    /dns/1.t15.dnslink.dev  [ttl=3600]
-    /ipfs/mnop      [ttl=3600]
-
     # Recursively receive the dnslink entries for the dnslink.io domain.
-    > dnslink -r t15.dnslink.dev
+    > dnslink t15.dnslink.dev
     /ipns/AANO      [ttl=3600]
+
+    # Non-Recursively receive the dnslink entries for the t15.dnslink.io test-domain.
+    > dnslink --non-recursive 15.dnslink.dev
+    /dnslink/1.t15.dnslink.dev  [ttl=3600]
+    /ipfs/mnop      [ttl=3600]
 
     # Receive only the ipfs entry as text for dnslink.io
     > dnslink -k=ipfs dnslink.io
@@ -164,7 +164,7 @@ OPTIONS
                           servers in the dns-query docs: [1]
     --debug, -d           Render log output to stderr in the specified format.
     --key, -k             Only render one particular dnslink key.
-    --recursive, -r       Lookup recursive dnslink entries.
+    --non-recursive, -nr  Lookup recursive dnslink entries.
 
     [1]: https://github.com/martinheidegger/dns-query#string-endpoints
 
