@@ -404,7 +404,7 @@ function reducePath (value, paths) {
   }, []).join('/')
   if (search !== undefined) {
     let sep = '?'
-    for (const key in search) {
+    for (const key of Object.keys(search).sort()) {
       for (const entry of search[key]) {
         result += `${sep}${encodeURIComponent(key)}=${encodeURIComponent(entry)}`
         sep = '&'
