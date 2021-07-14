@@ -89,11 +89,11 @@ const outputs = {
           } else if (key !== searchKey) {
             continue
           }
-          value += `\t[ttl=${ttl}`
+          value += `\t[ttl=${ttl}]`
           for (const part of path) {
             value += `\t[path=${renderPath(part)}]`
           }
-          out.write(`${prefix}${value}]\n`)
+          out.write(`${prefix}${value}\n`)
         }
       }
       if (debug) {
