@@ -75,5 +75,6 @@ export class RCodeError extends Error {
   error: string;
   domain: string;
 }
+export function reducePath(value: string, path: PathEntry[]): string;
 
 export {};

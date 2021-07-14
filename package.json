@@ -6,7 +6,7 @@
   "types": "./types",
   "scripts": {
     "lint": "standard *.js bin/* && dtslint --localTs node_modules/typescript/lib types",
-    "test": "npm run test-doh && npm run test-udp",
+    "test": "npm run test-doh && npm run test-udp && node test.js",
     "test-doh": "dnslink-test -e log -- node test/integration-doh.js",
     "test-udp": "dnslink-test -e log -- node test/integration-udp.js"
   },

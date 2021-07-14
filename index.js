@@ -120,6 +120,7 @@ module.exports = Object.freeze({
   RCodeError,
   defaultLookupTXT,
   createLookupTXT,
+  reducePath,
   LogCode: LogCode,
   InvalidityReason: InvalidityReason
 })
@@ -252,14 +253,18 @@ function relevantURLParts (input) {
     pathname = parts[2]
   }
   domain = decodeURIComponent(domain)
+  return { search: searchParamsToMap(url.searchParams), domain, pathname }
+}
+
+function searchParamsToMap (searchParams) {
   let search
-  for (const key of url.searchParams.keys()) {
+  for (const key of searchParams.keys()) {
     if (search === undefined) {
       search = {}
     }
-    search[key] = url.searchParams.getAll(key)
+    search[key] = searchParams.getAll(key)
   }
-  return { search, domain, pathname }
+  return search
 }
 
 async function resolveDnslink (domain, options, log) {
@@ -364,4 +369,64 @@ function getPathFromLog (log) {
     }
   }
   return path
+}
+
+function reducePath (value, paths) {
+  const parts = new URL(`https://ab.c/${value}`)
+  let search = searchParamsToMap(parts.searchParams)
+  let pathParts = (parts.pathname || '').split('/')
+  if (!value.startsWith('/')) {
+    pathParts.shift()
+  }
+  for (const path of paths) {
+    let { pathname } = path
+    if (pathname) {
+      if (pathname.startsWith('/')) {
+        pathname = pathname.substr(1)
+      }
+      if (pathname.startsWith('/')) {
+        pathname = pathname.substr(1)
+        pathParts = []
+      }
+      pathParts = pathParts.concat(pathname.split('/'))
+    }
+    if (path.search) {
+      search = combineSearch(path.search, search)
+    }
+  }
+  let result = pathParts.reduce((result, entry, index) => {
+    if (entry === '..') {
+      result.pop()
+    } else if (entry !== '.') {
+      result.push(entry)
+    }
+    return result
+  }, []).join('/')
+  if (search !== undefined) {
+    let sep = '?'
+    for (const key in search) {
+      for (const entry of search[key]) {
+        result += `${sep}${encodeURIComponent(key)}=${encodeURIComponent(entry)}`
+        sep = '&'
+      }
+    }
+  }
+  return result
+}
+
+function combineSearch (newEntries, search) {
+  for (const key in newEntries) {
+    for (const entry of newEntries[key]) {
+      if (search === undefined) {
+        search = {}
+      }
+      const entries = search[key]
+      if (entries === undefined) {
+        search[key] = [entry]
+      } else {
+        entries.push(entry)
+      }
+    }
+  }
+  return search
 }

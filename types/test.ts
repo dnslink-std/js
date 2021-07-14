@@ -1,4 +1,4 @@
-import { resolveN, resolve, Options, LogCode, InvalidityReason, Result, LookupOptions, RCodeError } from '@dnslink/js';
+import { resolveN, resolve, Options, LogCode, InvalidityReason, Result, LookupOptions, RCodeError, reducePath } from '@dnslink/js';
 import { AbortController } from '@consento/promise';
 
 const c = new AbortController();
@@ -82,3 +82,8 @@ lo = {
 lo = {
   endpoints: ['udp://1.1.1.1']
 };
+
+reducePath('abcd', []);
+reducePath('abcd', [{ pathname: 'hi' }]);
+reducePath('abcd', [{ search: {} }]);
+reducePath('abcd', [{ search: { bar: ['baz']} }]);
