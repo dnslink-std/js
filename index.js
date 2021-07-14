@@ -48,7 +48,7 @@ const RCODE_MESSAGE = {
 }
 class RCodeError extends Error {
   constructor (rcode, domain) {
-    super(`${(RCODE_MESSAGE[rcode] || `Undefined error.`)} (rcode=${rcode}${RCODE_ERROR[rcode] ? `, error=${RCODE_ERROR[rcode]}` : ''}, domain=${domain})`)
+    super(`${(RCODE_MESSAGE[rcode] || 'Undefined error.')} (rcode=${rcode}${RCODE_ERROR[rcode] ? `, error=${RCODE_ERROR[rcode]}` : ''}, domain=${domain})`)
     this.rcode = rcode
     this.code = `RCODE_${rcode}`
     this.error = RCODE_ERROR[rcode]
