@@ -10,7 +10,8 @@ resolveN(process.argv[2], {
   error => console.log(JSON.stringify({
     error: {
       message: error.message,
-      code: error.code
+      code: error.code,
+      reason: error.reason
     }
   }))
 )

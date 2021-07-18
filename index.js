@@ -115,7 +115,7 @@ module.exports = Object.freeze({
 async function dnslinkN (domain, options) {
   const validated = validateDomain({ value: domain })
   if (validated.error) {
-    throw Object.assign(new Error(`Invalid input domain: ${domain}`), { code: validated.error.code })
+    throw Object.assign(new Error(`Invalid input domain: ${domain}`), { code: validated.error.code, reason: validated.error.reason })
   }
   let lookup = validated.redirect
   const log = []
