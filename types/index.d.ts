@@ -20,6 +20,10 @@ export enum EntryReason {
   invalidCharacter = 'INVALID_CHARACTER',
   invalidEncoding = 'INVALID_ENCODING',
 }
+export enum RedirectReason {
+  emptyPart = 'EMPTY_PART',
+  tooLong = 'TOO_LONG',
+}
 export interface PathEntry {
   pathname?: string;
   search?: { [key: string]: string [] };
@@ -39,6 +43,7 @@ export interface EndlessRedirects extends DomainEntry {
 export interface InvalidRedirect {
   code: LogCode.invalidRedirect;
   entry: string;
+  reason: RedirectReason;
 }
 export interface TooManyRedirects extends DomainEntry {
   code: LogCode.tooManyRedirects;

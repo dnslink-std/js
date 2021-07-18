@@ -20,6 +20,10 @@ const EntryReason = Object.freeze({
   invalidCharacter: 'INVALID_CHARACTER',
   invalidEncoding: 'INVALID_ENCODING'
 })
+const RedirectReason = Object.freeze({
+  emptyPart: 'EMPTY_PART',
+  tooLong: 'TOO_LONG'
+})
 const RCODE = require('dns-packet/rcodes')
 const RCODE_ERROR = {
   1: 'FormErr',
@@ -109,7 +113,8 @@ module.exports = Object.freeze({
   createLookupTXT,
   reducePath,
   LogCode: LogCode,
-  EntryReason
+  EntryReason,
+  RedirectReason
 })
 
 async function dnslinkN (domain, options) {
@@ -158,67 +163,41 @@ async function dnslinkN (domain, options) {
 }
 
 function validateDomain (input) {
-  let { domain, pathname, search } = relevantURLParts(input.value)
+  let inValue = input.value
+  if (inValue.endsWith('.')) {
+    inValue = inValue.substr(0, inValue.length - 1)
+  }
+  if (inValue.startsWith(DNS_PREFIX)) {
+    inValue = inValue.substr(DNS_PREFIX.length)
+  }
+  const index = inValue.indexOf('/')
+  const domain = index === -1 ? inValue : inValue.substr(0, index)
+  const domainError = testFqdn(domain)
+  if (domainError !== undefined) {
+    return { error: { code: LogCode.invalidRedirect, entry: input.data, reason: domainError } }
+  }
+  const { pathname, search } = relevantURLParts(inValue)
   if (domain.startsWith(DNS_PREFIX)) {
-    domain = domain.substr(DNS_PREFIX.length)
-    if (domain.startsWith(DNS_PREFIX)) {
-      return { error: { code: LogCode.recursivePrefix, domain: `${DNS_PREFIX}${domain}`, pathname, search } }
-    }
-  }
-  if (domain === '.' || !isFqdn(domain)) {
-    return { error: { code: LogCode.invalidRedirect, entry: input.data } }
-  }
-  if (domain.endsWith('.')) {
-    domain = domain.substr(0, domain.length - 1)
+    return { error: { code: LogCode.recursivePrefix, domain: `${DNS_PREFIX}${domain}`, pathname, search } }
   }
   return { redirect: { domain: `${DNS_PREFIX}${domain}`, pathname, search } }
 }
 
-function isFqdn (str) {
-  if (str[str.length - 1] === '.') {
-    str = str.substring(0, str.length - 1)
-  }
-  if (!str) {
-    return false
-  }
-  const parts = str.split('.')
-  const tld = parts[parts.length - 1]
-
-  // disallow fqdns without tld
-  if (parts.length < 2) {
-    return false
+function testFqdn (domain) {
+  // https://en.wikipedia.org/wiki/Domain_name#Domain_name_syntax
+  if (domain.length > 253 - 9 /* '_dnslink.'.length */) {
+    // > The full domain name may not exceed a total length of 253 ASCII characters in its textual representation.
+    return RedirectReason.tooLong
   }
 
-  if (!/^([a-z\u00a1-\uffff]{2,}|xn[a-z0-9-]{2,})$/i.test(tld)) {
-    return false
-  }
-
-  // disallow spaces && special characers
-  if (/[\s\u2002-\u200B\u202F\u205F\u3000\uFEFF\uDB40\uDC20\u00A9\uFFFD]/u.test(tld)) {
-    return false
-  }
-
-  // disallow all numbers
-  if (parts.every(part => /^0-9$/.test(part))) {
-    return false
-  }
-
-  return parts.every((part) => {
-    if (part.length > 63) {
-      return false
+  for (const label of domain.split('.')) {
+    if (label.length === 0) {
+      return RedirectReason.emptyPart
     }
-
-    if (!/^[a-z\u00a1-\u00ff0-9-]+$/i.test(part)) {
-      return false
+    if (label.length > 63) {
+      return RedirectReason.tooLong
     }
-
-    // disallow parts starting or ending with hyphen
-    if (/^-|-$/.test(part)) {
-      return false
-    }
-
-    return true
-  })
+  }
 }
 
 function relevantURLParts (input) {
@@ -256,14 +235,13 @@ function searchParamsToMap (searchParams) {
 
 async function resolveDnslink (domain, options, log) {
   return resolveTxtEntries(
-    domain,
     options,
     await options.lookupTXT(domain, options),
     log
   )
 }
 
-function resolveTxtEntries (domain, options, txtEntries, log) {
+function resolveTxtEntries (options, txtEntries, log) {
   const dnslinkEntries = txtEntries.filter(entry => entry.data.startsWith(TXT_PREFIX))
   const found = processEntries(dnslinkEntries, log)
   if (options.recursive && found.dnslink) {

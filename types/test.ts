@@ -1,4 +1,4 @@
-import { resolveN, resolve, Options, LogCode, EntryReason, Result, LookupOptions, RCodeError, reducePath } from '@dnslink/js';
+import { resolveN, resolve, Options, LogCode, EntryReason, RedirectReason, Result, LookupOptions, RCodeError, reducePath } from '@dnslink/js';
 import { AbortController } from '@consento/promise';
 
 const c = new AbortController();
@@ -46,6 +46,9 @@ function next({ links, path, log }: Result) {
     }
     if (logEntry.code === LogCode.invalidEntry) {
       const reason: EntryReason = logEntry.reason;
+    }
+    if (logEntry.code === LogCode.invalidRedirect) {
+      const reason: RedirectReason = logEntry.reason;
     }
   }
   for (const entry of path) {
