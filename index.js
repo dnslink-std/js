@@ -13,10 +13,12 @@ const LogCode = Object.freeze({
   unusedEntry: 'UNUSED_ENTRY',
   recursivePrefix: 'RECURSIVE_DNSLINK_PREFIX'
 })
-const InvalidityReason = Object.freeze({
+const EntryReason = Object.freeze({
   wrongStart: 'WRONG_START',
   keyMissing: 'KEY_MISSING',
-  noValue: 'NO_VALUE'
+  noValue: 'NO_VALUE',
+  invalidCharacter: 'INVALID_CHARACTER',
+  invalidEncoding: 'INVALID_ENCODING'
 })
 const RCODE = require('dns-packet/rcodes')
 const RCODE_ERROR = {
@@ -84,28 +86,13 @@ function createLookupTXT (baseOptions) {
 }
 
 const decoder = new TextDecoder()
-function combineTXT (data) {
-  if (typeof data === 'string') {
-    return data
+function combineTXT (uint8Arrays) {
+  let string = ''
+  for (const uint8Array of uint8Arrays) {
+    string += decoder.decode(uint8Array, { stream: true })
   }
-  if (Array.isArray(data)) {
-    if (data.every(entry => entry instanceof Uint8Array)) {
-      return combineTXT(concatUint8Arrays(data))
-    }
-    return data.map(combineTXT).join('')
-  }
-  return decoder.decode(data)
-}
-
-function concatUint8Arrays (arrays) {
-  const len = arrays.reduce((len, entry) => len + entry.length, 0)
-  const result = new Uint8Array(len)
-  let offset = 0
-  for (const array of arrays) {
-    result.set(array, offset)
-    offset += array.length
-  }
-  return result
+  string += decoder.decode()
+  return string
 }
 
 const defaultLookupTXT = createLookupTXT({})
@@ -122,7 +109,7 @@ module.exports = Object.freeze({
   createLookupTXT,
   reducePath,
   LogCode: LogCode,
-  InvalidityReason: InvalidityReason
+  EntryReason
 })
 
 async function dnslinkN (domain, options) {
@@ -335,9 +322,18 @@ function sortByValue (a, b) {
 }
 
 function validateDNSLinkEntry (entry) {
-  const trimmed = entry.substr(TXT_PREFIX.length).trim()
+  let trimmed = entry.substr(TXT_PREFIX.length).trim()
   if (!trimmed.startsWith('/')) {
-    return { error: InvalidityReason.wrongStart }
+    return { error: EntryReason.wrongStart }
+  }
+  // https://datatracker.ietf.org/doc/html/rfc4343#section-2.1
+  if (!/^[\u0020-\u007e]*$/.test(trimmed)) {
+    return { error: EntryReason.invalidCharacter }
+  }
+  try {
+    trimmed = decodeURIComponent(trimmed)
+  } catch (error) {
+    return { error: EntryReason.invalidEncoding }
   }
   const parts = trimmed.split('/')
   parts.shift()
@@ -346,14 +342,14 @@ function validateDNSLinkEntry (entry) {
     key = parts.shift().trim()
   }
   if (!key) {
-    return { error: InvalidityReason.keyMissing }
+    return { error: EntryReason.keyMissing }
   }
   let value
   if (parts.length !== 0) {
     value = parts.join('/').trim()
   }
   if (!value) {
-    return { error: InvalidityReason.noValue }
+    return { error: EntryReason.noValue }
   }
   return { key, value }
 }

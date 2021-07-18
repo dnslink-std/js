@@ -13,10 +13,12 @@ export enum LogCode {
   unusedEntry = 'UNUSED_ENTRY',
   recursivePrefix = 'RECURSIVE_DNSLINK_PREFIX',
 }
-export enum InvalidityReason {
+export enum EntryReason {
   wrongStart = 'WRONG_START',
   keyMissing = 'KEY_MISSING',
   noValue = 'NO_VALUE',
+  invalidCharacter = 'INVALID_CHARACTER',
+  invalidEncoding = 'INVALID_ENCODING',
 }
 export interface PathEntry {
   pathname?: string;
@@ -47,7 +49,7 @@ export interface RecursiveDNSlinkPrefix extends DomainEntry  {
 export interface InvalidEntry {
   code: LogCode.invalidEntry;
   entry: string;
-  reason: InvalidityReason;
+  reason: EntryReason;
 }
 export interface UnusedEntry {
   code: LogCode.unusedEntry;
