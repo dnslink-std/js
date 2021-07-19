@@ -90,10 +90,14 @@ function createLookupTXT (baseOptions) {
 }
 
 const decoder = new TextDecoder()
-function combineTXT (uint8Arrays) {
+function combineTXT (inputs) {
   let string = ''
-  for (const uint8Array of uint8Arrays) {
-    string += decoder.decode(uint8Array, { stream: true })
+  for (const input of inputs) {
+    if (input instanceof Uint8Array) {
+      string += decoder.decode(input, { stream: true })
+    } else {
+      string += input
+    }
   }
   string += decoder.decode()
   return string
