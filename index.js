@@ -122,11 +122,11 @@ module.exports = Object.freeze({
 })
 
 async function dnslinkN (domain, options) {
-  const validated = validateDomain({ value: domain })
-  if (validated.error) {
-    throw Object.assign(new Error(`Invalid input domain: ${domain}`), { code: validated.error.code, reason: validated.error.reason })
+  const validatedDomain = validateDomain({ value: domain })
+  if (validatedDomain.error) {
+    throw Object.assign(new Error(`Invalid input domain: ${domain}`), { code: validatedDomain.error.code, reason: validatedDomain.error.reason })
   }
-  let lookup = validated.redirect
+  let lookup = validatedDomain.redirect
   const log = []
   const chain = []
   while (true) {
@@ -249,25 +249,25 @@ function resolveTxtEntries (options, txtEntries, log) {
   const dnslinkEntries = txtEntries.filter(entry => entry.data.startsWith(TXT_PREFIX))
   const found = processEntries(dnslinkEntries, log)
   if (options.recursive && found.dnslink) {
-    let redirect
+    let validRedirect
     for (const dns of found.dnslink) {
       const validated = validateDomain(dns)
       if (validated.error) {
         log.push(validated.error)
-      } else if (redirect === undefined) {
-        redirect = validated
+      } else if (validRedirect === undefined) {
+        validRedirect = validated
       } else {
         log.push({ code: LogCode.unusedEntry, entry: dns.data })
       }
     }
     delete found.dnslink
-    if (redirect !== undefined) {
+    if (validRedirect !== undefined) {
       for (const results of Object.values(found)) {
         for (const { data } of results) {
           log.push({ code: LogCode.unusedEntry, entry: data })
         }
       }
-      return redirect
+      return validRedirect
     }
   }
   const links = {}
