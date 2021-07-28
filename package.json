@@ -6,7 +6,8 @@
   "types": "./types",
   "scripts": {
     "lint": "standard *.js bin/* && dtslint --localTs node_modules/typescript/lib types",
-    "test": "npm run test-doh && npm run test-udp && node test.js",
+    "test": "npm run test-unit && npm run test-doh && npm run test-udp",
+    "test-unit": "fresh-tape test/unit.js",
     "test-doh": "dnslink-test -e log -- node test/integration-doh.js",
     "test-udp": "dnslink-test -e log -- node test/integration-udp.js"
   },
@@ -37,7 +38,7 @@
   "homepage": "https://github.com/dnslink-std/js#readme",
   "dependencies": {
     "@consento/promise": "^1.0.7",
-    "dns-query": "^0.7.0"
+    "dns-query": "^0.7.1"
   },
   "devDependencies": {
     "@dnslink/test": "^0.8.0",
