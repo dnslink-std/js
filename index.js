@@ -126,6 +126,7 @@ async function dnslinkN (domain, options) {
   if (validatedDomain.error) {
     throw Object.assign(new Error(`Invalid input domain: ${domain}`), { code: validatedDomain.error.code, reason: validatedDomain.error.reason })
   }
+  let ttl = Number.MAX_SAFE_INTEGER
   let lookup = validatedDomain.redirect
   const log = []
   const chain = []
@@ -137,6 +138,9 @@ async function dnslinkN (domain, options) {
       const resolved = await resolveDnslink(domain, options, log)
       links = resolved.links
       redirect = resolved.redirect
+      if (resolved.ttl > 0) {
+        ttl = Math.min(ttl, resolved.ttl)
+      }
     } catch (err) {
       if (err.rcode === 3 && domain.startsWith(DNS_PREFIX)) {
         redirect = { domain: domain.substr(DNS_PREFIX.length) }
@@ -148,6 +152,11 @@ async function dnslinkN (domain, options) {
     const resolve = { code: LogCode.resolve, ...lookup }
     if (!redirect) {
       log.push(resolve)
+      for (const link of Object.values(links)) {
+        for (const entry of link) {
+          entry.ttl = Math.min(entry.ttl, ttl)
+        }
+      }
       return { links, path: getPathFromLog(log), log }
     }
     if (chain.includes(redirect.domain)) {
@@ -256,6 +265,7 @@ function resolveTxtEntries (options, txtEntries, log) {
         log.push(validated.error)
       } else if (validRedirect === undefined) {
         validRedirect = validated
+        validRedirect.ttl = dns.ttl
       } else {
         log.push({ code: LogCode.unusedEntry, entry: dns.data })
       }
