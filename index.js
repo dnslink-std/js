@@ -24,6 +24,23 @@ const RedirectReason = Object.freeze({
   emptyPart: 'EMPTY_PART',
   tooLong: 'TOO_LONG'
 })
+const CodeMeaning = Object.freeze({
+  [LogCode.redirect]: 'Redirecting away from this domain.',
+  [LogCode.resolve]: 'Resolving from this domain.',
+  [LogCode.invalidEntry]: 'Entry misformatted, cant be used.',
+  [LogCode.endlessRedirect]: 'Detected endless redirect.',
+  [LogCode.invalidRedirect]: 'Invalid redirect found.',
+  [LogCode.tooManyRedirects]: 'Too many redirects occured.',
+  [LogCode.unusedEntry]: 'A redirect resulted in this entry to be ignored.',
+  [LogCode.recursivePrefix]: 'Only one _dnslink. prefix can be used.',
+  [EntryReason.wrongStart]: 'A dnslink entry needs to start with a /.',
+  [EntryReason.keyMissing]: 'A dnslink entry needs to have a key, like: dnslink=/key/value.',
+  [EntryReason.noValue]: 'An dnslink entry needs to have a value, like: dnslink=/key/value.',
+  [EntryReason.invalidCharacter]: 'A dnslink entry may only contain ascii characters.',
+  [EntryReason.invalidEncoding]: 'A dnslink entry uses percent encoding wrongly.',
+  [RedirectReason.emptyPart]: 'A redirect may not contain empty parts.',
+  [RedirectReason.tooLong]: 'A redirect domain may be max 253 characters which each subdomain not exceeding 63 characters.'
+})
 const RCODE = require('dns-packet/rcodes')
 const RCODE_ERROR = {
   1: 'FormErr',
@@ -116,9 +133,10 @@ module.exports = Object.freeze({
   defaultLookupTXT,
   createLookupTXT,
   reducePath,
-  LogCode: LogCode,
+  LogCode,
   EntryReason,
-  RedirectReason
+  RedirectReason,
+  CodeMeaning
 })
 
 async function dnslinkN (domain, options) {

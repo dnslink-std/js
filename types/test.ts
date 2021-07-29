@@ -1,4 +1,4 @@
-import { resolveN, resolve, Options, LogCode, EntryReason, RedirectReason, Result, LookupOptions, RCodeError, reducePath } from '@dnslink/js';
+import { resolveN, resolve, Options, LogCode, EntryReason, RedirectReason, Result, LookupOptions, RCodeError, reducePath, CodeMeaning } from '@dnslink/js';
 import { AbortController } from '@consento/promise';
 
 const c = new AbortController();
@@ -18,6 +18,9 @@ resolve('some.domain').then(next).catch(
     }
   }
 );
+
+const anyCode: LogCode | EntryReason | RedirectReason = LogCode.invalidRedirect;
+const meaning: string = CodeMeaning[anyCode];
 
 function next({ links, path, log }: Result) {
   const { ipfs, other }: { ipfs?: string, other?: string } = links;

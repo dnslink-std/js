@@ -24,6 +24,9 @@ export enum RedirectReason {
   emptyPart = 'EMPTY_PART',
   tooLong = 'TOO_LONG',
 }
+export const CodeMeaning: {
+  [key in LogCode | EntryReason | RedirectReason]: string;
+};
 export interface PathEntry {
   pathname?: string;
   search?: { [key: string]: string [] };
