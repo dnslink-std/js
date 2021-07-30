@@ -1,6 +1,6 @@
 {
   "name": "@dnslink/js",
-  "version": "0.10.1",
+  "version": "0.10.2",
   "description": "The reference implementation for DNSLink in JavaScript. Tested in Node.js and in the Browser.",
   "main": "index.js",
   "types": "./types",
