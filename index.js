@@ -24,7 +24,7 @@ const RedirectReason = Object.freeze({
   emptyPart: 'EMPTY_PART',
   tooLong: 'TOO_LONG'
 })
-const CodeMeaning = Object.freeze({
+const CODE_MEANING = Object.freeze({
   [LogCode.redirect]: 'Redirecting away from this domain.',
   [LogCode.resolve]: 'Resolving from this domain.',
   [LogCode.invalidEntry]: 'Entry misformatted, cant be used.',
@@ -136,7 +136,7 @@ module.exports = Object.freeze({
   LogCode,
   EntryReason,
   RedirectReason,
-  CodeMeaning
+  CODE_MEANING
 })
 
 async function dnslinkN (domain, options) {
