@@ -32,12 +32,12 @@ const CODE_MEANING = Object.freeze({
   [LogCode.invalidRedirect]: 'Invalid redirect found.',
   [LogCode.tooManyRedirects]: 'Too many redirects occured.',
   [LogCode.unusedEntry]: 'A redirect resulted in this entry to be ignored.',
-  [LogCode.recursivePrefix]: 'Only one _dnslink. prefix can be used.',
-  [EntryReason.wrongStart]: 'A dnslink entry needs to start with a /.',
-  [EntryReason.keyMissing]: 'A dnslink entry needs to have a key, like: dnslink=/key/value.',
-  [EntryReason.noValue]: 'An dnslink entry needs to have a value, like: dnslink=/key/value.',
-  [EntryReason.invalidCharacter]: 'A dnslink entry may only contain ascii characters.',
-  [EntryReason.invalidEncoding]: 'A dnslink entry uses percent encoding wrongly.',
+  [LogCode.recursivePrefix]: 'Only one "_dnslink." prefix can be used at a time.',
+  [EntryReason.wrongStart]: 'A DNSLink entry needs to start with a /.',
+  [EntryReason.keyMissing]: 'A DNSLink entry needs to have a key, like: dnslink=/key/value.',
+  [EntryReason.noValue]: 'An DNSLink entry needs to have a value, like: dnslink=/key/value.',
+  [EntryReason.invalidCharacter]: 'A DNSLink entry may only contain ascii characters.',
+  [EntryReason.invalidEncoding]: 'A DNSLink entry uses percent encoding wrongly.',
   [RedirectReason.emptyPart]: 'A redirect may not contain empty parts.',
   [RedirectReason.tooLong]: 'A redirect domain may be max 253 characters which each subdomain not exceeding 63 characters.'
 })
