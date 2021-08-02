@@ -1,14 +1,14 @@
 # @dnslink/js
 
-The reference implementation for DNSLink in JavaScript. Tested in Node.js and in the Browser.
+The reference implementation for DNSLink resolver in JavaScript. Tested in Node.js and in the Browser.
 
 ## Usage
 
-You can use dnslink both as code and as an CLI tool.
+You can use `dnslink` both as a [CLI tool](#command-line) or a [library](#javascript-api).
 
 ## JavaScript API
 
-Getting started with the dnslink in a jiffy:
+Getting started with DNSLink resolution in a jiffy:
 
 ```javascript
 const { resolveN, createLookupTXT, RCodeError } = require('@dnslink/js')
@@ -102,8 +102,9 @@ each containing their contribution to the path.
 
 ## Command Line
 
-To use dnslink in the command line you will need Node.js installed. Then
-you can install it permanently using `npm i -g @dnslink/js` or run in on-the-fly
+To use `dnslink` in the command line you will need Node.js installed. 
+
+Install it permanently using `npm i -g @dnslink/js` or run in on-the-fly
 using `npx @dnslink/js`.
 
 You can get detailed help for the app by passing a `--help` option at the end:
