@@ -1,25 +1,9 @@
 #!/usr/bin/env node
 const { AbortController } = require('@consento/promise')
-const { resolve, createLookupTXT, defaultLookupTXT, reducePath } = require('../index')
+const { resolve, createLookupTXT, defaultLookupTXT } = require('../index')
 const { version, homepage } = require('../package.json')
 
 const json = input => JSON.stringify(input)
-const renderSearch = search => {
-  if (!search) {
-    return null
-  }
-  const entries = Object.entries(search)
-  if (entries.length === 0) {
-    return ''
-  }
-  return `?${entries
-    .map(([key, values]) => values
-      .map(value => `${encodeURIComponent(key)}=${encodeURIComponent(value)}`)
-      .join('&')
-    )
-    .join('&')}`
-}
-const renderPath = part => `${part.pathname || ''}${renderSearch(part.search) || ''}`
 
 const outputs = {
   json: class JSON {
@@ -79,7 +63,7 @@ const outputs = {
       this.options = options
     }
 
-    write (domain, { links, log, path }) {
+    write (domain, { links, log }) {
       const { debug, out, err, key: searchKey, domains, first: firstKey } = this.options
       const prefix = domains.length > 1 ? `${domain}: ` : ''
       for (const key in links) {
@@ -90,9 +74,6 @@ const outputs = {
             continue
           }
           value += `\t[ttl=${ttl}]`
-          for (const part of path) {
-            value += `\t[path=${renderPath(part)}]`
-          }
           out.write(`${prefix}${value}\n`)
           if (firstKey) {
             break
@@ -101,7 +82,7 @@ const outputs = {
       }
       if (debug) {
         for (const logEntry of log) {
-          err.write(`[${logEntry.code}] domain=${logEntry.domain}${logEntry.pathname ? ` pathname=${logEntry.pathname}` : ''}${logEntry.search ? ` search=${renderSearch(logEntry.search)}` : ''}${logEntry.entry ? ` entry=${logEntry.entry}` : ''}${logEntry.reason ? ` (${logEntry.reason})` : ''}\n`)
+          err.write(`[${logEntry.code}] ${logEntry.entry ? ` entry=${logEntry.entry}` : ''}${logEntry.reason ? ` (${logEntry.reason})` : ''}\n`)
         }
       }
     }
@@ -113,7 +94,7 @@ const outputs = {
       this.options = options
     }
 
-    write (domain, { links, log, path }) {
+    write (domain, { links, log }) {
       const { debug, out, err, key: searchKey, domains, first: firstKey } = this.options
       const prefix = domains.length > 1 ? `${domain}: ` : ''
       for (const key in links) {
@@ -121,7 +102,6 @@ const outputs = {
           continue
         }
         for (let { value } of links[key]) {
-          value = reducePath(value, path)
           if (!searchKey) {
             value = `/${key}/${value}`
           } else if (key !== searchKey) {
@@ -135,7 +115,7 @@ const outputs = {
       }
       if (debug) {
         for (const logEntry of log) {
-          err.write(`[${logEntry.code}] domain=${logEntry.domain}${logEntry.pathname ? ` pathname=${logEntry.pathname}` : ''}${logEntry.search ? ` search=${renderSearch(logEntry.search)}` : ''}${logEntry.entry ? ` entry=${logEntry.entry}` : ''}${logEntry.reason ? ` (${logEntry.reason})` : ''}\n`)
+          err.write(`[${logEntry.code}] ${logEntry.entry ? ` entry=${logEntry.entry}` : ''}${logEntry.reason ? ` (${logEntry.reason})` : ''}\n`)
         }
       }
     }
@@ -149,11 +129,11 @@ const outputs = {
       this.firstErr = true
     }
 
-    write (lookup, { links, log, path }) {
+    write (lookup, { links, log }) {
       const { debug, out, err, key: searchKey, first: firstKey } = this.options
       if (this.firstOut) {
         this.firstOut = false
-        out.write('lookup,key,value,ttl,path\n')
+        out.write('lookup,key,value,ttl\n')
       }
 
       for (const key in links) {
@@ -161,7 +141,7 @@ const outputs = {
           continue
         }
         for (const { value, ttl } of links[key]) {
-          out.write(`${csv(lookup)},${csv(key)},${csv(value)},${csv(ttl)},${csv(path.map(renderPath).join(' → '))}\n`)
+          out.write(`${csv(lookup)},${csv(key)},${csv(value)},${csv(ttl)}\n`)
         }
         if (firstKey) {
           break
@@ -171,9 +151,9 @@ const outputs = {
         for (const logEntry of log) {
           if (this.firstErr) {
             this.firstErr = false
-            err.write('domain,pathname,search,code,entry,reason\n')
+            err.write('domain,code,entry,reason\n')
           }
-          err.write(`${csv(logEntry.domain)},${csv(logEntry.pathname)},${csv(renderSearch(logEntry.search))},${csv(logEntry.code)},${csv(logEntry.entry)},${csv(logEntry.reason)}\n`)
+          err.write(`${csv(logEntry.domain)},${csv(logEntry.code)},${csv(logEntry.entry)},${csv(logEntry.reason)}\n`)
         }
       }
     }
@@ -229,7 +209,6 @@ module.exports = (command) => {
       }
       await Promise.all(domains.map(async (domain) => {
         output.write(domain, await resolve(domain, {
-          recursive: !(options['non-recursive'] || options.nr),
           signal,
           lookupTXT: lookupTXT || defaultLookupTXT
         }))
@@ -258,17 +237,12 @@ function showHelp (command) {
 USAGE
     ${command} [--help] [--format=json|text|csv] [--dns] [--doh] [--debug] \\
         [--key=<key>] [--first=<key>] [--endpoint[=<endpoint>]] \\
-        [--non-recursive] <hostname> [...<hostname>]
+        <hostname> [...<hostname>]
 
 EXAMPLE
-    # Recursively receive the dnslink entries for the dnslink.io domain.
+    # Receive the dnslink entries for the dnslink.io domain.
     > ${command} t15.dnslink.dev
     /ipns/AANO      [ttl=3600]
-
-    # Non-Recursively receive the dnslink entries for the t15.dnslink.io test-domain.
-    > ${command} --non-recursive 15.dnslink.dev
-    /dnslink/1.t15.dnslink.dev  [ttl=3600]
-    /ipfs/mnop      [ttl=3600]
 
     # Receive only the ipfs entry as text for dnslink.io
     > ${command} -k=ipfs dnslink.io
@@ -284,15 +258,15 @@ EXAMPLE
 
     # Receive all dnslink entries for multiple domains as csv
     > ${command} -f=csv dnslink.io ipfs.io
-    lookup,key,value,ttl,path
-    "dnslink.io","ipfs","QmTgQDr3xNgKBVDVJtyGhopHoxW4EVgpkfbwE4qckxGdyo",60,
-    "ipfs.io","ipns","website.ipfs.io",60,
+    lookup,key,value,ttl
+    "dnslink.io","ipfs","QmTgQDr3xNgKBVDVJtyGhopHoxW4EVgpkfbwE4qckxGdyo",60
+    "ipfs.io","ipns","website.ipfs.io",60
 
     # Receive ipfs entries for multiple domains as json
     > ${command} -f=json -k=ipfs dnslink.io website.ipfs.io
     [
-    {"lookup":"website.ipfs.io","links":{"ipfs":[{"value":"bafybeiagozluzfopjadeigrjlsmktseozde2xc5prvighob7452imnk76a","ttl":32}]},"path":[]}
-    ,{"lookup":"dnslink.io","links":{"ipfs":[{"value":"QmTgQDr3xNgKBVDVJtyGhopHoxW4EVgpkfbwE4qckxGdyo","ttl":120}]},"path":[]}
+    {"lookup":"website.ipfs.io","links":{"ipfs":[{"value":"bafybeiagozluzfopjadeigrjlsmktseozde2xc5prvighob7452imnk76a","ttl":32}]}}
+    ,{"lookup":"dnslink.io","links":{"ipfs":[{"value":"QmTgQDr3xNgKBVDVJtyGhopHoxW4EVgpkfbwE4qckxGdyo","ttl":120}]}}
     ]
 
     # Receive both the result and log and write the output to files
@@ -313,7 +287,6 @@ OPTIONS
     --debug, -d           Render log output to stderr in the specified format.
     --key, -k             Only render one particular dnslink key.
     --first               Only render the first of the defined dnslink key.
-    --non-recursive, -nr  Lookup recursive dnslink entries.
 
     [1]: https://github.com/martinheidegger/dns-query#string-endpoints
 

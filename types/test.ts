@@ -1,9 +1,8 @@
-import { resolveN, resolve, Options, LogCode, EntryReason, RedirectReason, Result, LookupOptions, RCodeError, reducePath, CODE_MEANING } from '@dnslink/js';
+import { resolve, Options, LogCode, EntryReason, Result, LookupOptions, RCodeError, CODE_MEANING, FQDNReason } from '@dnslink/js';
 import { AbortController } from '@consento/promise';
 
 const c = new AbortController();
 
-resolveN('some.domain').then(next);
 resolve('some.domain').then(next).catch(
   (err: Error) => {
     if (err instanceof RCodeError) {
@@ -19,48 +18,18 @@ resolve('some.domain').then(next).catch(
   }
 );
 
-const anyCode: LogCode | EntryReason | RedirectReason = LogCode.invalidRedirect;
+const anyCode: LogCode | EntryReason | FQDNReason = LogCode.fallback;
 const meaning: string = CODE_MEANING[anyCode];
 
-function next({ links, path, log }: Result) {
+function next({ links, log }: Result) {
   const { ipfs, other }: { ipfs?: string, other?: string } = links;
   for (const logEntry of log) {
     const code: LogCode = logEntry.code;
     /* tslint:disable:prefer-switch */
     if (
-      logEntry.code === LogCode.invalidEntry ||
-      logEntry.code === LogCode.invalidRedirect ||
-      logEntry.code === LogCode.unusedEntry
+      logEntry.code === LogCode.invalidEntry
     ) {
       const entry: string = logEntry.entry;
-    }
-    if (
-      logEntry.code === LogCode.endlessRedirect ||
-      logEntry.code === LogCode.tooManyRedirects
-    ) {
-      const domain: string = logEntry.domain;
-      const pathname: string | undefined = logEntry.pathname;
-      const search: { [key: string]: string[] } | undefined = logEntry.search;
-    }
-    if (
-      logEntry.code === LogCode.recursivePrefix
-    ) {
-      // No special property
-    }
-    if (logEntry.code === LogCode.invalidEntry) {
-      const reason: EntryReason = logEntry.reason;
-    }
-    if (logEntry.code === LogCode.invalidRedirect) {
-      const reason: RedirectReason = logEntry.reason;
-    }
-  }
-  for (const entry of path) {
-    const pathname: string | undefined = entry.pathname;
-    const search = entry.search;
-    if (search !== undefined) {
-      for (const key in search) {
-        const entries: string[] = search[key];
-      }
     }
   }
 }
@@ -68,12 +37,6 @@ function next({ links, path, log }: Result) {
 let o: Options = {};
 o = { signal: c.signal };
 o = { timeout: 1000 };
-o = {
-  recursive: true
-};
-o = {
-  recursive: false
-};
 
 let lo: LookupOptions = {};
 lo = {
@@ -88,8 +51,3 @@ lo = {
 lo = {
   endpoints: ['udp://1.1.1.1']
 };
-
-reducePath('abcd', []);
-reducePath('abcd', [{ pathname: 'hi' }]);
-reducePath('abcd', [{ search: {} }]);
-reducePath('abcd', [{ search: { bar: ['baz']} }]);

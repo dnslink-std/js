@@ -4,14 +4,8 @@ const { query } = require('dns-query')
 const DNS_PREFIX = '_dnslink.'
 const TXT_PREFIX = 'dnslink='
 const LogCode = Object.freeze({
-  redirect: 'REDIRECT',
-  resolve: 'RESOLVE',
-  invalidEntry: 'INVALID_ENTRY',
-  endlessRedirect: 'ENDLESS_REDIRECT',
-  invalidRedirect: 'INVALID_REDIRECT',
-  tooManyRedirects: 'TOO_MANY_REDIRECTS',
-  unusedEntry: 'UNUSED_ENTRY',
-  recursivePrefix: 'RECURSIVE_DNSLINK_PREFIX'
+  fallback: 'FALLBACK',
+  invalidEntry: 'INVALID_ENTRY'
 })
 const EntryReason = Object.freeze({
   wrongStart: 'WRONG_START',
@@ -20,26 +14,20 @@ const EntryReason = Object.freeze({
   invalidCharacter: 'INVALID_CHARACTER',
   invalidEncoding: 'INVALID_ENCODING'
 })
-const RedirectReason = Object.freeze({
+const FQDNReason = Object.freeze({
   emptyPart: 'EMPTY_PART',
   tooLong: 'TOO_LONG'
 })
 const CODE_MEANING = Object.freeze({
-  [LogCode.redirect]: 'Redirecting away from this domain.',
-  [LogCode.resolve]: 'Resolving from this domain.',
+  [LogCode.fallback]: 'Falling back to domain without _dnslink prefix.',
   [LogCode.invalidEntry]: 'Entry misformatted, cant be used.',
-  [LogCode.endlessRedirect]: 'Detected endless redirect.',
-  [LogCode.invalidRedirect]: 'Invalid redirect found.',
-  [LogCode.tooManyRedirects]: 'Too many redirects occured.',
-  [LogCode.unusedEntry]: 'A redirect resulted in this entry to be ignored.',
-  [LogCode.recursivePrefix]: 'Only one "_dnslink." prefix can be used at a time.',
   [EntryReason.wrongStart]: 'A DNSLink entry needs to start with a /.',
   [EntryReason.keyMissing]: 'A DNSLink entry needs to have a key, like: dnslink=/key/value.',
   [EntryReason.noValue]: 'An DNSLink entry needs to have a value, like: dnslink=/key/value.',
   [EntryReason.invalidCharacter]: 'A DNSLink entry may only contain ascii characters.',
   [EntryReason.invalidEncoding]: 'A DNSLink entry uses percent encoding wrongly.',
-  [RedirectReason.emptyPart]: 'A redirect may not contain empty parts.',
-  [RedirectReason.tooLong]: 'A redirect domain may be max 253 characters which each subdomain not exceeding 63 characters.'
+  [FQDNReason.emptyPart]: 'A FQDN may not contain empty parts.',
+  [FQDNReason.tooLong]: 'A FQDN may be max 253 characters which each subdomain not exceeding 63 characters.'
 })
 const RCODE = require('dns-packet/rcodes')
 const RCODE_ERROR = {
@@ -124,205 +112,103 @@ const defaultLookupTXT = createLookupTXT({})
 
 module.exports = Object.freeze({
   resolve: function dnslink (domain, options = {}) {
-    return wrapTimeout(async signal => dnslinkN(domain, { recursive: false, lookupTXT: defaultLookupTXT, ...options, signal }), options)
-  },
-  resolveN: function dnslink (domain, options = {}) {
-    return wrapTimeout(async signal => dnslinkN(domain, { recursive: true, lookupTXT: defaultLookupTXT, ...options, signal }), options)
+    return wrapTimeout(async signal => _resolve(domain, { lookupTXT: defaultLookupTXT, ...options, signal }))
   },
   RCodeError,
   defaultLookupTXT,
   createLookupTXT,
-  reducePath,
   LogCode,
   EntryReason,
-  RedirectReason,
+  FQDNReason,
   CODE_MEANING
 })
 
-async function dnslinkN (domain, options) {
-  const validatedDomain = validateDomain({ value: domain })
-  if (validatedDomain.error) {
-    throw Object.assign(new Error(`Invalid input domain: ${domain}`), { code: validatedDomain.error.code, reason: validatedDomain.error.reason })
-  }
-  let ttl = Number.MAX_SAFE_INTEGER
-  let lookup = validatedDomain.redirect
-  const log = []
-  const chain = []
-  while (true) {
-    const { domain } = lookup
-    let links
-    let redirect
-    try {
-      const resolved = await resolveDnslink(domain, options, log)
-      links = resolved.links
-      redirect = resolved.redirect
-      if (resolved.ttl > 0) {
-        ttl = Math.min(ttl, resolved.ttl)
-      }
-    } catch (err) {
-      if (err.rcode === 3 && domain.startsWith(DNS_PREFIX)) {
-        redirect = { domain: domain.substr(DNS_PREFIX.length) }
-      } else {
-        throw err
-      }
+async function _resolve (domain, options) {
+  domain = validateDomain(domain)
+  let fallbackResult = null
+  let useFallback = false
+  const defaultResolve = options.lookupTXT(`${DNS_PREFIX}${domain}`, options)
+  const fallbackResolve = options.lookupTXT(domain, options).then(
+    result => { fallbackResult = { result } },
+    error => { fallbackResult = { error } }
+  )
+  let data
+  try {
+    data = await defaultResolve
+  } catch (err) {
+    if (err.rcode !== 3) {
+      throw err
     }
+  }
+  if (data === undefined) { // Could be undefined if an error occured
     bubbleAbort(options.signal)
-    const resolve = { code: LogCode.resolve, ...lookup }
-    if (!redirect) {
-      log.push(resolve)
-      for (const link of Object.values(links)) {
-        for (const entry of link) {
-          entry.ttl = Math.min(entry.ttl, ttl)
-        }
-      }
-      return { links, path: getPathFromLog(log), log }
+    await fallbackResolve
+    if (fallbackResult.error) {
+      throw fallbackResult.error
     }
-    if (chain.includes(redirect.domain)) {
-      log.push(resolve)
-      log.push({ code: LogCode.endlessRedirect, ...redirect })
-      return { links: {}, path: [], log }
-    }
-    if (chain.length === 31) {
-      log.push(resolve)
-      log.push({ code: LogCode.tooManyRedirects, ...redirect })
-      return { links: {}, path: [], log }
-    }
-    chain.push(domain)
-    log.push({ code: LogCode.redirect, ...lookup })
-    lookup = redirect
+    useFallback = true
+    data = fallbackResult.result
   }
+  const result = processEntries(data)
+  if (useFallback) {
+    result.log.unshift({ code: LogCode.fallback })
+  }
+  return result
 }
 
-function validateDomain (input) {
-  let inValue = input.value
-  if (inValue.endsWith('.')) {
-    inValue = inValue.substr(0, inValue.length - 1)
+function validateDomain (domain) {
+  if (domain.endsWith('.')) {
+    domain = domain.substr(0, domain.length - 1)
   }
-  if (inValue.startsWith(DNS_PREFIX)) {
-    inValue = inValue.substr(DNS_PREFIX.length)
+  if (domain.startsWith(DNS_PREFIX)) {
+    domain = domain.substr(DNS_PREFIX.length)
   }
-  const index = inValue.indexOf('/')
-  const domain = index === -1 ? inValue : inValue.substr(0, index)
   const domainError = testFqdn(domain)
   if (domainError !== undefined) {
-    return { error: { code: LogCode.invalidRedirect, entry: input.data, reason: domainError } }
+    throw Object.assign(new Error(`Invalid input domain: ${domain}`), { code: 'INVALID_DOMAIN', reason: domainError, domain })
   }
-  const { pathname, search } = relevantURLParts(inValue)
-  if (domain.startsWith(DNS_PREFIX)) {
-    return { error: { code: LogCode.recursivePrefix, domain: `${DNS_PREFIX}${domain}`, pathname, search } }
-  }
-  return { redirect: { domain: `${DNS_PREFIX}${domain}`, pathname, search } }
+  return domain
 }
 
 function testFqdn (domain) {
   // https://en.wikipedia.org/wiki/Domain_name#Domain_name_syntax
   if (domain.length > 253 - 9 /* '_dnslink.'.length */) {
     // > The full domain name may not exceed a total length of 253 ASCII characters in its textual representation.
-    return RedirectReason.tooLong
+    return FQDNReason.tooLong
   }
 
   for (const label of domain.split('.')) {
     if (label.length === 0) {
-      return RedirectReason.emptyPart
+      return FQDNReason.emptyPart
     }
     if (label.length > 63) {
-      return RedirectReason.tooLong
+      return FQDNReason.tooLong
     }
   }
 }
 
-function relevantURLParts (input) {
-  input = input.trim()
-  const url = new URL(input, 'ftp://_')
-  let domain
-  let pathname
-  if (url.hostname !== '_') {
-    domain = url.hostname
-    if (url.pathname) {
-      pathname = url.pathname
-    }
-  } else if (input.startsWith('/')) {
-    domain = ''
-    pathname = url.pathname
-  } else if (url.pathname) {
-    const parts = /^\/([^/]*)(\/.*)?/.exec(url.pathname)
-    domain = parts[1]
-    pathname = parts[2]
-  }
-  domain = decodeURIComponent(domain)
-  return { search: searchParamsToMap(url.searchParams), domain, pathname }
-}
-
-function searchParamsToMap (searchParams) {
-  let search
-  for (const key of searchParams.keys()) {
-    if (search === undefined) {
-      search = {}
-    }
-    search[key] = searchParams.getAll(key)
-  }
-  return search
-}
-
-async function resolveDnslink (domain, options, log) {
-  return resolveTxtEntries(
-    options,
-    await options.lookupTXT(domain, options),
-    log
-  )
-}
-
-function resolveTxtEntries (options, txtEntries, log) {
-  const dnslinkEntries = txtEntries.filter(entry => entry.data.startsWith(TXT_PREFIX))
-  const found = processEntries(dnslinkEntries, log)
-  if (options.recursive && found.dnslink) {
-    let validRedirect
-    for (const dns of found.dnslink) {
-      const validated = validateDomain(dns)
-      if (validated.error) {
-        log.push(validated.error)
-      } else if (validRedirect === undefined) {
-        validRedirect = validated
-        validRedirect.ttl = dns.ttl
-      } else {
-        log.push({ code: LogCode.unusedEntry, entry: dns.data })
-      }
-    }
-    delete found.dnslink
-    if (validRedirect !== undefined) {
-      for (const results of Object.values(found)) {
-        for (const { data } of results) {
-          log.push({ code: LogCode.unusedEntry, entry: data })
-        }
-      }
-      return validRedirect
-    }
-  }
+function processEntries (txtEntries) {
   const links = {}
-  for (const [key, entries] of Object.entries(found)) {
-    links[key] = entries.map(({ value, ttl }) => ({ value, ttl })).sort(sortByValue)
-  }
-  return { links }
-}
-
-function processEntries (dnslinkEntries, log) {
-  const found = {}
-  for (const entry of dnslinkEntries) {
-    const validated = validateDNSLinkEntry(entry.data)
-    if (validated.error !== undefined) {
-      log.push({ code: LogCode.invalidEntry, entry: entry.data, reason: validated.error })
+  const log = []
+  for (const entry of txtEntries.filter(entry => entry.data.startsWith(TXT_PREFIX))) {
+    const { error, parsed } = validateDNSLinkEntry(entry.data)
+    if (error !== undefined) {
+      log.push({ code: LogCode.invalidEntry, entry: entry.data, reason: error })
       continue
     }
-    const { key, value } = validated
-    const link = { value, ttl: entry.ttl, data: entry.data }
-    const list = found[key]
-    if (list) {
-      list.push(link)
+    const { key, value } = parsed
+    const linksByKey = links[key]
+    const link = { value, ttl: entry.ttl }
+    if (linksByKey === undefined) {
+      links[key] = [link]
     } else {
-      found[key] = [link]
+      linksByKey.push(link)
     }
   }
-  return found
+  for (const [key, linksByKey] of Object.entries(links)) {
+    links[key] = linksByKey.sort(sortByValue)
+  }
+  return { links, log }
 }
 
 function sortByValue (a, b) {
@@ -361,78 +247,5 @@ function validateDNSLinkEntry (entry) {
   if (!value) {
     return { error: EntryReason.noValue }
   }
-  return { key, value }
-}
-
-function getPathFromLog (log) {
-  const path = []
-  for (const entry of log.filter(entry => entry.code === LogCode.redirect || entry.code === LogCode.resolve)) {
-    if (entry.pathname || entry.search) {
-      path.unshift({
-        pathname: entry.pathname,
-        search: entry.search
-      })
-    }
-  }
-  return path
-}
-
-function reducePath (value, paths) {
-  const parts = new URL(`https://ab.c/${value}`)
-  let search = searchParamsToMap(parts.searchParams)
-  let pathParts = (parts.pathname || '').split('/')
-  if (!value.startsWith('/')) {
-    pathParts.shift()
-  }
-  for (const path of paths) {
-    let { pathname } = path
-    if (pathname) {
-      if (pathname.startsWith('/')) {
-        pathname = pathname.substr(1)
-      }
-      if (pathname.startsWith('/')) {
-        pathname = pathname.substr(1)
-        pathParts = []
-      }
-      pathParts = pathParts.concat(pathname.split('/'))
-    }
-    if (path.search) {
-      search = combineSearch(path.search, search)
-    }
-  }
-  let result = pathParts.reduce((result, entry, index) => {
-    if (entry === '..') {
-      result.pop()
-    } else if (entry !== '.') {
-      result.push(entry)
-    }
-    return result
-  }, []).join('/')
-  if (search !== undefined) {
-    let sep = '?'
-    for (const key of Object.keys(search).sort()) {
-      for (const entry of search[key]) {
-        result += `${sep}${encodeURIComponent(key)}=${encodeURIComponent(entry)}`
-        sep = '&'
-      }
-    }
-  }
-  return result
-}
-
-function combineSearch (newEntries, search) {
-  for (const key in newEntries) {
-    for (const entry of newEntries[key]) {
-      if (search === undefined) {
-        search = {}
-      }
-      const entries = search[key]
-      if (entries === undefined) {
-        search[key] = [entry]
-      } else {
-        entries.push(entry)
-      }
-    }
-  }
-  return search
+  return { parsed: { key, value } }
 }
