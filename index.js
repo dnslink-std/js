@@ -11,8 +11,7 @@ const EntryReason = Object.freeze({
   wrongStart: 'WRONG_START',
   namespaceMissing: 'NAMESPACE_MISSING',
   noIdentifier: 'NO_IDENTIFIER',
-  invalidCharacter: 'INVALID_CHARACTER',
-  invalidEncoding: 'INVALID_ENCODING'
+  invalidCharacter: 'INVALID_CHARACTER'
 })
 const FQDNReason = Object.freeze({
   emptyPart: 'EMPTY_PART',
@@ -25,7 +24,6 @@ const CODE_MEANING = Object.freeze({
   [EntryReason.namespaceMissing]: 'A DNSLink entry needs to have a namespace, like: dnslink=/namespace/identifier.',
   [EntryReason.noIdentifier]: 'An DNSLink entry needs to have an identifier, like: dnslink=/namespace/identifier.',
   [EntryReason.invalidCharacter]: 'A DNSLink entry may only contain ascii characters.',
-  [EntryReason.invalidEncoding]: 'A DNSLink entry uses percent encoding wrongly.',
   [FQDNReason.emptyPart]: 'A FQDN may not contain empty parts.',
   [FQDNReason.tooLong]: 'A FQDN may be max 253 characters which each subdomain not exceeding 63 characters.'
 })
@@ -218,18 +216,13 @@ function sortByID (a, b) {
 }
 
 function validateDNSLinkEntry (entry) {
-  let trimmed = entry.substr(TXT_PREFIX.length).trim()
+  const trimmed = entry.substr(TXT_PREFIX.length).trim()
   if (!trimmed.startsWith('/')) {
     return { error: EntryReason.wrongStart }
   }
   // https://datatracker.ietf.org/doc/html/rfc4343#section-2.1
   if (!/^[\u0020-\u007e]*$/.test(trimmed)) {
     return { error: EntryReason.invalidCharacter }
-  }
-  try {
-    trimmed = decodeURIComponent(trimmed)
-  } catch (error) {
-    return { error: EntryReason.invalidEncoding }
   }
   const parts = trimmed.split('/')
   parts.shift()
