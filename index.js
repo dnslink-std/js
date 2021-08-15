@@ -9,8 +9,8 @@ const LogCode = Object.freeze({
 })
 const EntryReason = Object.freeze({
   wrongStart: 'WRONG_START',
-  keyMissing: 'KEY_MISSING',
-  noValue: 'NO_VALUE',
+  namespaceMissing: 'NAMESPACE_MISSING',
+  noIdentifier: 'NO_IDENTIFIER',
   invalidCharacter: 'INVALID_CHARACTER',
   invalidEncoding: 'INVALID_ENCODING'
 })
@@ -22,8 +22,8 @@ const CODE_MEANING = Object.freeze({
   [LogCode.fallback]: 'Falling back to domain without _dnslink prefix.',
   [LogCode.invalidEntry]: 'Entry misformatted, cant be used.',
   [EntryReason.wrongStart]: 'A DNSLink entry needs to start with a /.',
-  [EntryReason.keyMissing]: 'A DNSLink entry needs to have a key, like: dnslink=/key/value.',
-  [EntryReason.noValue]: 'An DNSLink entry needs to have a value, like: dnslink=/key/value.',
+  [EntryReason.namespaceMissing]: 'A DNSLink entry needs to have a namespace, like: dnslink=/namespace/identifier.',
+  [EntryReason.noIdentifier]: 'An DNSLink entry needs to have an identifier, like: dnslink=/namespace/identifier.',
   [EntryReason.invalidCharacter]: 'A DNSLink entry may only contain ascii characters.',
   [EntryReason.invalidEncoding]: 'A DNSLink entry uses percent encoding wrongly.',
   [FQDNReason.emptyPart]: 'A FQDN may not contain empty parts.',
@@ -196,24 +196,24 @@ function processEntries (txtEntries) {
       log.push({ code: LogCode.invalidEntry, entry: entry.data, reason: error })
       continue
     }
-    const { key, value } = parsed
-    const linksByKey = links[key]
-    const link = { value, ttl: entry.ttl }
-    if (linksByKey === undefined) {
-      links[key] = [link]
+    const { namespace, identifier } = parsed
+    const linksByNS = links[namespace]
+    const link = { identifier, ttl: entry.ttl }
+    if (linksByNS === undefined) {
+      links[namespace] = [link]
     } else {
-      linksByKey.push(link)
+      linksByNS.push(link)
     }
   }
-  for (const [key, linksByKey] of Object.entries(links)) {
-    links[key] = linksByKey.sort(sortByValue)
+  for (const [ns, linksByNS] of Object.entries(links)) {
+    links[ns] = linksByNS.sort(sortByID)
   }
   return { links, log }
 }
 
-function sortByValue (a, b) {
-  if (a.value < b.value) return -1
-  if (a.value > b.value) return 1
+function sortByID (a, b) {
+  if (a.identifier < b.identifier) return -1
+  if (a.identifier > b.identifier) return 1
   return 0
 }
 
@@ -233,19 +233,19 @@ function validateDNSLinkEntry (entry) {
   }
   const parts = trimmed.split('/')
   parts.shift()
-  let key
+  let namespace
   if (parts.length !== 0) {
-    key = parts.shift().trim()
+    namespace = parts.shift().trim()
   }
-  if (!key) {
-    return { error: EntryReason.keyMissing }
+  if (!namespace) {
+    return { error: EntryReason.namespaceMissing }
   }
-  let value
+  let identifier
   if (parts.length !== 0) {
-    value = parts.join('/').trim()
+    identifier = parts.join('/').trim()
   }
-  if (!value) {
-    return { error: EntryReason.noValue }
+  if (!identifier) {
+    return { error: EntryReason.noIdentifier }
   }
-  return { parsed: { key, value } }
+  return { parsed: { namespace, identifier } }
 }

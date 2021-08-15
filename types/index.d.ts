@@ -9,8 +9,8 @@ export enum LogCode {
 }
 export enum EntryReason {
   wrongStart = 'WRONG_START',
-  keyMissing = 'KEY_MISSING',
-  noValue = 'NO_VALUE',
+  namepaceMissing = 'NAMESPACE_MISSING',
+  noIdentifier = 'NO_IDENTIFIER',
   invalidCharacter = 'INVALID_CHARACTER',
   invalidEncoding = 'INVALID_ENCODING',
 }
@@ -19,7 +19,7 @@ export enum FQDNReason {
   tooLong = 'TOO_LONG',
 }
 export const CODE_MEANING: {
-  [key in LogCode | EntryReason | FQDNReason]: string;
+  [code in LogCode | EntryReason | FQDNReason]: string;
 };
 export interface InvalidEntry {
   code: LogCode.invalidEntry;
@@ -31,7 +31,7 @@ export interface FallbackEntry {
 }
 export type LogEntry = FallbackEntry | InvalidEntry;
 export interface Result {
-  links: { [key: string]: Array<{ value: string, ttl: number }>; };
+  links: { [namespace: string]: Array<{ identifier: string, ttl: number }>; };
   log: LogEntry[];
 }
 export type LookupTXT = (domain: string, options: TimeoutOptions) => Promise<Array<{ data: string, ttl: number }>>;

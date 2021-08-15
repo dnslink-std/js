@@ -37,9 +37,9 @@ try {
 }
 const { links, log } = result
 
-// `links` is an object containing given links for the different keys
-// Each key contains a value and a ttl.
-links.ipfs === [{ value: 'QmTg....yomU', ttl: 60 }]
+// `links` is an object containing given links for the different namespaces
+// Each names contains an identifier and a ttl.
+links.ipfs === [{ identifier: 'QmTg....yomU', ttl: 60 }]
 
 // The `log` is always an Array and contains a list of log entries
 // that were should help to trace back how the linked data was resolved.
@@ -94,7 +94,7 @@ dnslink - resolve dns links in TXT records
 
 USAGE
     dnslink [--help] [--format=json|text|csv] [--dns] [--doh] [--debug] \
-        [--key=<key>] [--first=<key>] [--endpoint[=<endpoint>]] \
+        [--ns=<ns>] [--first=<ns>] [--endpoint[=<endpoint>]] \
         <hostname> [...<hostname>]
 
 EXAMPLE
@@ -116,15 +116,15 @@ EXAMPLE
 
     # Receive all dnslink entries for multiple domains as csv
     > dnslink -f=csv dnslink.io ipfs.io
-    lookup,key,value,ttl
+    lookup,namespace,identifier,ttl
     "dnslink.io","ipfs","QmTgQDr3xNgKBVDVJtyGhopHoxW4EVgpkfbwE4qckxGdyo",60
     "ipfs.io","ipns","website.ipfs.io",60
 
     # Receive ipfs entries for multiple domains as json
     > dnslink -f=json -k=ipfs dnslink.io website.ipfs.io
     [
-    {"lookup":"website.ipfs.io","links":{"ipfs":[{"value":"bafybeiagozluzfopjadeigrjlsmktseozde2xc5prvighob7452imnk76a","ttl":32}]}}
-    ,{"lookup":"dnslink.io","links":{"ipfs":[{"value":"QmTgQDr3xNgKBVDVJtyGhopHoxW4EVgpkfbwE4qckxGdyo","ttl":120}]}}
+    {"lookup":"website.ipfs.io","links":{"ipfs":[{"identifier":"bafybeiagozluzfopjadeigrjlsmktseozde2xc5prvighob7452imnk76a","ttl":32}]}}
+    ,{"lookup":"dnslink.io","links":{"ipfs":[{"identifier":"QmTgQDr3xNgKBVDVJtyGhopHoxW4EVgpkfbwE4qckxGdyo","ttl":120}]}}
     ]
 
     # Receive both the result and log and write the output to files
@@ -143,8 +143,8 @@ OPTIONS
                           specified at random. More about specifying
                           servers in the dns-query docs: [1]
     --debug, -d           Render log output to stderr in the specified format.
-    --key, -k             Only render one particular dnslink key.
-    --first               Only render the first of the defined dnslink key.
+    --ns, -n              Only render one particular DNSLink namespace.
+    --first               Only render the first of the defined DNSLink namespace.
 
     [1]: https://github.com/martinheidegger/dns-query#string-endpoints
 

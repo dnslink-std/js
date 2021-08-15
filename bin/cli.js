@@ -64,18 +64,18 @@ const outputs = {
     }
 
     write (domain, { links, log }) {
-      const { debug, out, err, key: searchKey, domains, first: firstKey } = this.options
+      const { debug, out, err, ns: searchNS, domains, first: firstNS } = this.options
       const prefix = domains.length > 1 ? `${domain}: ` : ''
-      for (const key in links) {
-        for (let { value, ttl } of links[key]) {
-          if (!searchKey) {
-            value = `/${key}/${value}`
-          } else if (key !== searchKey) {
+      for (const ns in links) {
+        for (let { identifier: id, ttl } of links[ns]) {
+          if (!searchNS) {
+            id = `/${ns}/${id}`
+          } else if (ns !== searchNS) {
             continue
           }
-          value += `\t[ttl=${ttl}]`
-          out.write(`${prefix}${value}\n`)
-          if (firstKey) {
+          id += `\t[ttl=${ttl}]`
+          out.write(`${prefix}${id}\n`)
+          if (firstNS) {
             break
           }
         }
@@ -95,20 +95,20 @@ const outputs = {
     }
 
     write (domain, { links, log }) {
-      const { debug, out, err, key: searchKey, domains, first: firstKey } = this.options
+      const { debug, out, err, ns: searchNS, domains, first: firstNS } = this.options
       const prefix = domains.length > 1 ? `${domain}: ` : ''
-      for (const key in links) {
-        if (searchKey && key !== searchKey) {
+      for (const ns in links) {
+        if (searchNS && ns !== searchNS) {
           continue
         }
-        for (let { value } of links[key]) {
-          if (!searchKey) {
-            value = `/${key}/${value}`
-          } else if (key !== searchKey) {
+        for (let { identifier: id } of links[ns]) {
+          if (!searchNS) {
+            id = `/${ns}/${id}`
+          } else if (ns !== searchNS) {
             continue
           }
-          out.write(`${prefix}${value}\n`)
-          if (firstKey) {
+          out.write(`${prefix}${id}\n`)
+          if (firstNS) {
             break
           }
         }
@@ -130,20 +130,20 @@ const outputs = {
     }
 
     write (lookup, { links, log }) {
-      const { debug, out, err, key: searchKey, first: firstKey } = this.options
+      const { debug, out, err, ns: searchNS, first: firstNS } = this.options
       if (this.firstOut) {
         this.firstOut = false
-        out.write('lookup,key,value,ttl\n')
+        out.write('lookup,namespace,identifier,ttl\n')
       }
 
-      for (const key in links) {
-        if (searchKey && key !== searchKey) {
+      for (const ns in links) {
+        if (searchNS && ns !== searchNS) {
           continue
         }
-        for (const { value, ttl } of links[key]) {
-          out.write(`${csv(lookup)},${csv(key)},${csv(value)},${csv(ttl)}\n`)
+        for (const { identifier: id, ttl } of links[ns]) {
+          out.write(`${csv(lookup)},${csv(ns)},${csv(id)},${csv(ttl)}\n`)
         }
-        if (firstKey) {
+        if (firstNS) {
           break
         }
       }
@@ -187,10 +187,10 @@ module.exports = (command) => {
         throw new Error(`Unexpected format ${format}`)
       }
       const first = firstEntry(options.first)
-      const key = first || firstEntry(options.key) || firstEntry(options.k)
+      const ns = first || firstEntry(options.ns) || firstEntry(options.n)
       const output = new OutputClass({
         first,
-        key,
+        ns,
         debug: !!(options.debug || options.d),
         domains,
         out: process.stdout,
@@ -236,7 +236,7 @@ function showHelp (command) {
 
 USAGE
     ${command} [--help] [--format=json|text|csv] [--dns] [--doh] [--debug] \\
-        [--key=<key>] [--first=<key>] [--endpoint[=<endpoint>]] \\
+        [--ns=<ns>] [--first=<ns>] [--endpoint[=<endpoint>]] \\
         <hostname> [...<hostname>]
 
 EXAMPLE
@@ -258,15 +258,15 @@ EXAMPLE
 
     # Receive all dnslink entries for multiple domains as csv
     > ${command} -f=csv dnslink.io ipfs.io
-    lookup,key,value,ttl
+    lookup,namespace,identifier,ttl
     "dnslink.io","ipfs","QmTgQDr3xNgKBVDVJtyGhopHoxW4EVgpkfbwE4qckxGdyo",60
     "ipfs.io","ipns","website.ipfs.io",60
 
     # Receive ipfs entries for multiple domains as json
     > ${command} -f=json -k=ipfs dnslink.io website.ipfs.io
     [
-    {"lookup":"website.ipfs.io","links":{"ipfs":[{"value":"bafybeiagozluzfopjadeigrjlsmktseozde2xc5prvighob7452imnk76a","ttl":32}]}}
-    ,{"lookup":"dnslink.io","links":{"ipfs":[{"value":"QmTgQDr3xNgKBVDVJtyGhopHoxW4EVgpkfbwE4qckxGdyo","ttl":120}]}}
+    {"lookup":"website.ipfs.io","links":{"ipfs":[{"identifier":"bafybeiagozluzfopjadeigrjlsmktseozde2xc5prvighob7452imnk76a","ttl":32}]}}
+    ,{"lookup":"dnslink.io","links":{"ipfs":[{"identifier":"QmTgQDr3xNgKBVDVJtyGhopHoxW4EVgpkfbwE4qckxGdyo","ttl":120}]}}
     ]
 
     # Receive both the result and log and write the output to files
@@ -285,8 +285,8 @@ OPTIONS
                           specified at random. More about specifying
                           servers in the dns-query docs: [1]
     --debug, -d           Render log output to stderr in the specified format.
-    --key, -k             Only render one particular dnslink key.
-    --first               Only render the first of the defined dnslink key.
+    --ns, -n              Only render one particular DNSLink namespace.
+    --first               Only render the first of the defined DNSLink namespace.
 
     [1]: https://github.com/martinheidegger/dns-query#string-endpoints
 
