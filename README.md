@@ -35,7 +35,7 @@ try {
     // - Incompatible dns packets provided by server
   }
 }
-const { links, log } = result
+const { links, log, txtEntries } = result
 
 // `links` is an object containing given links for the different namespaces
 // Each names contains an identifier and a ttl.
@@ -44,6 +44,10 @@ links.ipfs === [{ identifier: 'QmTg....yomU', ttl: 60 }]
 // The `log` is always an Array and contains a list of log entries
 // that were should help to trace back how the linked data was resolved.
 Array.isArray(log)
+
+// The `txtEntries` are a reduced form of the links that contains the namespace 
+// as part of the value
+txtEntries === [{ value: '/ipfs/QmTg....yomU', ttl: 60 }]
 ```
 
 You can also pass a set of options: 

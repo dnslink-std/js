@@ -185,10 +185,10 @@ function testFqdn (domain) {
   }
 }
 
-function processEntries (txtEntries) {
+function processEntries (input) {
   const links = {}
   const log = []
-  for (const entry of txtEntries.filter(entry => entry.data.startsWith(TXT_PREFIX))) {
+  for (const entry of input.filter(entry => entry.data.startsWith(TXT_PREFIX))) {
     const { error, parsed } = validateDNSLinkEntry(entry.data)
     if (error !== undefined) {
       log.push({ code: LogCode.invalidEntry, entry: entry.data, reason: error })
@@ -203,10 +203,16 @@ function processEntries (txtEntries) {
       linksByNS.push(link)
     }
   }
-  for (const [ns, linksByNS] of Object.entries(links)) {
-    links[ns] = linksByNS.sort(sortByID)
+  const txtEntries = []
+  // TODO: when removing the trimming of entries, the sorting logic can be simplified
+  for (const ns of Object.keys(links).sort()) {
+    const linksByNS = links[ns].sort(sortByID)
+    for (const { identifier, ttl } of linksByNS) {
+      txtEntries.push({ value: `/${ns}/${identifier}`, ttl })
+    }
+    links[ns] = linksByNS
   }
-  return { links, log }
+  return { txtEntries, links, log }
 }
 
 function sortByID (a, b) {

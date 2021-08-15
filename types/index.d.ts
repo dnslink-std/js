@@ -31,6 +31,7 @@ export interface FallbackEntry {
 }
 export type LogEntry = FallbackEntry | InvalidEntry;
 export interface Result {
+  txtEntries: Array<{ value: string, ttl: number }>;
   links: { [namespace: string]: Array<{ identifier: string, ttl: number }>; };
   log: LogEntry[];
 }
