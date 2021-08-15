@@ -11,12 +11,12 @@ You can use `dnslink` both as a [CLI tool](#command-line) or a [library](#javasc
 Getting started with DNSLink resolution in a jiffy:
 
 ```javascript
-const { resolveN, createLookupTXT, RCodeError } = require('@dnslink/js')
+const { resolve, createLookupTXT, RCodeError } = require('@dnslink/js')
 
 // assumes top-level await
 let result
 try {
-  result = await resolveN('dnslink.dev/abcd?foo=bar')
+  result = await resolve('dnslink.dev/abcd?foo=bar')
 } catch (err) {
   // Errors provided by DNS server
   if (err instanceof RCodeError) {
@@ -35,7 +35,7 @@ try {
     // - Incompatible dns packets provided by server
   }
 }
-const { links, path, log } = result
+const { links, log } = result
 
 // `links` is an object containing given links for the different keys
 // Each key contains a value and a ttl.
@@ -44,14 +44,6 @@ links.ipfs === [{ value: 'QmTg....yomU', ttl: 60 }]
 // The `log` is always an Array and contains a list of log entries
 // that were should help to trace back how the linked data was resolved.
 Array.isArray(log)
-
-// The `path` is always an Array that may contain a list of paths that
-// each link may uses to deep-resolve values. The list is sorted from
-// first to last.
-path == [{
-  pathname: '/abcd',
-  search: { foo: ['bar'] }
-}]
 ```
 
 You can also pass a set of options: 
@@ -65,7 +57,7 @@ endpoints = ['google'] // Use the "google" endpoint of above list ↑
 endpoints = ['https://cloudflare-dns.com/dns-query'] // Use a custom DoH endpoin
 // More about ↑ here: https://github.com/martinheidegger/dns-query#string-endpoints
 
-await resolveN('dnslink.dev', {
+await resolve('dnslink.dev', {
   signal, // AbortSignal that you can use to abort the request
   timeout: 1000, // (optional) timeout for the operation
   lookupTXT: /* (optional) */ createLookupTXT(
@@ -82,23 +74,11 @@ is not behaving like you expect. Every statement contains the `.code` property t
 property to understand what happened.
 Depending on the warnings code the errors may have additional `.entry` property that holds
 the problematic TXT entry. A `.reason` property may contain an additional reason for that error to occur.
-If redirects are employed or 
-Note that the order of the `RESOLVE` and `REDIRECT` entries are relevant, as they are point to the `.domain`
-at which previous errors occured. The entries between `RESOLVE` and `REDIRECT` statements however may
-be shuffled. These and other codes may additionally contain a `.pathname` and `.search` property,
-each containing their contribution to the path.
 
-
-| `.code`                  | Meaning                                                              | Additional properties               |
-|--------------------------|----------------------------------------------------------------------|-------------------------------------|
-| RESOLVE                  | This domain name will be used for resolving.                         | `.domain`, (`.pathname`, `.search`) |
-| REDIRECT                 | Redirecting away from the specified domain name.                     | `.domain`, (`.pathname`, `.search`) |
-| INVALID_ENTRY            | A TXT entry with `dnslink=` prefix has formatting errors.            | `.entry`, `.reason`                 |
-| RECURSIVE_DNSLINK_PREFIX | The hostname requested contains multiple `_dnslink` prefixes.        |                                     |
-| UNUSED_ENTRY             | An entry is unused because a redirect overrides it.                  | `.entry`                            |
-| ENDLESS_REDIRECT         | Endless DNSLink redirects detected.                                  | `.domain`, (`.pathname`, `.search`) |
-| INVALID_REDIRECT         | A given redirect is of invalid format.                               | `.entry`, `.reason`                 |
-| TOO_MANY_REDIRECTS       | Too many redirects happend. (max=32 per dnslink spec)                | `.domain`, (`.pathname`, `.search`) |
+| `.code`                  | Meaning                                                                       | Additional properties |
+|--------------------------|-------------------------------------------------------------------------------|-----------------------|
+| FALLBACK                 | No `_dnslink.` prefixed domain was found. Falling back to the regular domain. |                       |
+| INVALID_ENTRY            | A TXT entry with `dnslink=` prefix has formatting errors.                     | `.entry`, `.reason`   |
 
 ## Command Line
 
@@ -115,17 +95,12 @@ dnslink - resolve dns links in TXT records
 USAGE
     dnslink [--help] [--format=json|text|csv] [--dns] [--doh] [--debug] \
         [--key=<key>] [--first=<key>] [--endpoint[=<endpoint>]] \
-        [--non-recursive] <hostname> [...<hostname>]
+        <hostname> [...<hostname>]
 
 EXAMPLE
-    # Recursively receive the dnslink entries for the dnslink.io domain.
+    # Receive the dnslink entries for the dnslink.io domain.
     > dnslink t15.dnslink.dev
     /ipns/AANO      [ttl=3600]
-
-    # Non-Recursively receive the dnslink entries for the t15.dnslink.io test-domain.
-    > dnslink --non-recursive 15.dnslink.dev
-    /dnslink/1.t15.dnslink.dev  [ttl=3600]
-    /ipfs/mnop      [ttl=3600]
 
     # Receive only the ipfs entry as text for dnslink.io
     > dnslink -k=ipfs dnslink.io
@@ -141,15 +116,15 @@ EXAMPLE
 
     # Receive all dnslink entries for multiple domains as csv
     > dnslink -f=csv dnslink.io ipfs.io
-    lookup,key,value,ttl,path
-    "dnslink.io","ipfs","QmTgQDr3xNgKBVDVJtyGhopHoxW4EVgpkfbwE4qckxGdyo",60,
-    "ipfs.io","ipns","website.ipfs.io",60,
+    lookup,key,value,ttl
+    "dnslink.io","ipfs","QmTgQDr3xNgKBVDVJtyGhopHoxW4EVgpkfbwE4qckxGdyo",60
+    "ipfs.io","ipns","website.ipfs.io",60
 
     # Receive ipfs entries for multiple domains as json
     > dnslink -f=json -k=ipfs dnslink.io website.ipfs.io
     [
-    {"lookup":"website.ipfs.io","links":{"ipfs":[{"value":"bafybeiagozluzfopjadeigrjlsmktseozde2xc5prvighob7452imnk76a","ttl":32}]},"path":[]}
-    ,{"lookup":"dnslink.io","links":{"ipfs":[{"value":"QmTgQDr3xNgKBVDVJtyGhopHoxW4EVgpkfbwE4qckxGdyo","ttl":120}]},"path":[]}
+    {"lookup":"website.ipfs.io","links":{"ipfs":[{"value":"bafybeiagozluzfopjadeigrjlsmktseozde2xc5prvighob7452imnk76a","ttl":32}]}}
+    ,{"lookup":"dnslink.io","links":{"ipfs":[{"value":"QmTgQDr3xNgKBVDVJtyGhopHoxW4EVgpkfbwE4qckxGdyo","ttl":120}]}}
     ]
 
     # Receive both the result and log and write the output to files
@@ -170,7 +145,6 @@ OPTIONS
     --debug, -d           Render log output to stderr in the specified format.
     --key, -k             Only render one particular dnslink key.
     --first               Only render the first of the defined dnslink key.
-    --non-recursive, -nr  Lookup recursive dnslink entries.
 
     [1]: https://github.com/martinheidegger/dns-query#string-endpoints
 
