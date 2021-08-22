@@ -27,6 +27,12 @@ const outputs = {
       } else {
         out.write('\n,')
       }
+      if (!this.options.ttl) {
+        result.txtEntries = result.txtEntries.map(link => link.value)
+        for (const ns in result.links) {
+          result.links[ns] = result.links[ns].map(link => link.identifier)
+        }
+      }
       const outLine = domains.length > 1
         ? Object.assign({ lookup }, result)
         : Object.assign({}, result)
@@ -73,39 +79,8 @@ const outputs = {
           } else if (ns !== searchNS) {
             continue
           }
-          id += `\t[ttl=${ttl}]`
-          out.write(`${prefix}${id}\n`)
-          if (firstNS) {
-            break
-          }
-        }
-      }
-      if (debug) {
-        for (const logEntry of log) {
-          err.write(`[${logEntry.code}] ${logEntry.entry ? ` entry=${logEntry.entry}` : ''}${logEntry.reason ? ` (${logEntry.reason})` : ''}\n`)
-        }
-      }
-    }
-
-    end () {}
-  },
-  reduced: class Reduced {
-    constructor (options) {
-      this.options = options
-    }
-
-    write (domain, { links, log }) {
-      const { debug, out, err, ns: searchNS, domains, first: firstNS } = this.options
-      const prefix = domains.length > 1 ? `${domain}: ` : ''
-      for (const ns in links) {
-        if (searchNS && ns !== searchNS) {
-          continue
-        }
-        for (let { identifier: id } of links[ns]) {
-          if (!searchNS) {
-            id = `/${ns}/${id}`
-          } else if (ns !== searchNS) {
-            continue
+          if (this.options.ttl) {
+            id += `\t[ttl=${ttl}]`
           }
           out.write(`${prefix}${id}\n`)
           if (firstNS) {
@@ -133,7 +108,7 @@ const outputs = {
       const { debug, out, err, ns: searchNS, first: firstNS } = this.options
       if (this.firstOut) {
         this.firstOut = false
-        out.write('lookup,namespace,identifier,ttl\n')
+        out.write(`lookup,namespace,identifier${this.options.ttl ? ',ttl' : ''}\n`)
       }
 
       for (const ns in links) {
@@ -141,7 +116,7 @@ const outputs = {
           continue
         }
         for (const { identifier: id, ttl } of links[ns]) {
-          out.write(`${csv(lookup)},${csv(ns)},${csv(id)},${csv(ttl)}\n`)
+          out.write(`${csv(lookup)},${csv(ns)},${csv(id)}${this.options.ttl ? `,${csv(ttl)}` : ''}\n`)
         }
         if (firstNS) {
           break
@@ -191,6 +166,7 @@ module.exports = (command) => {
       const output = new OutputClass({
         first,
         ns,
+        ttl: !!(options.ttl),
         debug: !!(options.debug || options.d),
         domains,
         out: process.stdout,
@@ -242,31 +218,31 @@ USAGE
 EXAMPLE
     # Receive the dnslink entries for the dnslink.io domain.
     > ${command} t15.dnslink.dev
-    /ipns/AANO      [ttl=3600]
+    /ipns/AANO
 
     # Receive only the ipfs entry as text for dnslink.io
     > ${command} -k=ipfs dnslink.io
-    bafkreidj5lipga46mwq4wdkrrmarjmppobvtsqssge6o5nhkyvsp6pom3u [ttl=60]
+    bafkreidj5lipga46mwq4wdkrrmarjmppobvtsqssge6o5nhkyvsp6pom3u
 
-    # Receive only the ipfs entry as text for dnslink.io using DNS
+    # Receive only the ipfs entry as text for dnslink.io using the system DNS
     > ${command} -k=ipfs --dns dnslink.io
-    bafkreidj5lipga46mwq4wdkrrmarjmppobvtsqssge6o5nhkyvsp6pom3u [ttl=60]
+    bafkreidj5lipga46mwq4wdkrrmarjmppobvtsqssge6o5nhkyvsp6pom3u
 
-    # Receive only the first ipfs entry as text for dnslink.io using DNS
+    # Receive only the first ipfs entry as text for dnslink.io using the system DNS
     > ${command} --first=ipfs --dns dnslink.io
-    bafkreidj5lipga46mwq4wdkrrmarjmppobvtsqssge6o5nhkyvsp6pom3u [ttl=60]
+    bafkreidj5lipga46mwq4wdkrrmarjmppobvtsqssge6o5nhkyvsp6pom3u
 
     # Receive all dnslink entries for multiple domains as csv
     > ${command} -f=csv dnslink.io ipfs.io
-    lookup,namespace,identifier,ttl
-    "dnslink.io","ipfs","QmTgQDr3xNgKBVDVJtyGhopHoxW4EVgpkfbwE4qckxGdyo",60
-    "ipfs.io","ipns","website.ipfs.io",60
+    lookup,namespace,identifier
+    "dnslink.io","ipfs","QmTgQDr3xNgKBVDVJtyGhopHoxW4EVgpkfbwE4qckxGdyo"
+    "ipfs.io","ipns","website.ipfs.io"
 
     # Receive ipfs entries for multiple domains as json
     > ${command} -f=json -k=ipfs dnslink.io website.ipfs.io
     [
-    {"lookup":"website.ipfs.io","links":{"ipfs":[{"identifier":"bafybeiagozluzfopjadeigrjlsmktseozde2xc5prvighob7452imnk76a","ttl":32}]}}
-    ,{"lookup":"dnslink.io","links":{"ipfs":[{"identifier":"QmTgQDr3xNgKBVDVJtyGhopHoxW4EVgpkfbwE4qckxGdyo","ttl":120}]}}
+    {"lookup":"website.ipfs.io","txtEntries:["/ipfs/bafybeiagozluzfopjadeigrjlsmktseozde2xc5prvighob7452imnk76a"],"links":{"ipfs":["bafybeiagozluzfopjadeigrjlsmktseozde2xc5prvighob7452imnk76a"]}}
+    ,{"lookup":"dnslink.io","links":{"ipfs":["QmTgQDr3xNgKBVDVJtyGhopHoxW4EVgpkfbwE4qckxGdyo"]}}
     ]
 
     # Receive both the result and log and write the output to files
@@ -277,7 +253,8 @@ EXAMPLE
 OPTIONS
     --help, -h            Show this help.
     --version, -v         Show the version of this command.
-    --format, -f          Output format json, text, reduced or csv (default=text)
+    --format, -f          Output format json, text or csv (default=text)
+    --ttl                 Include ttl in output (any format)
     --dns                 Use one of default dns endpoints.
     --doh                 Use one of default doh endpoints.
     --endpoint=<server>   Specify a dns or doh server to use. If more than
