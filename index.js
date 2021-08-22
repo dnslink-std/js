@@ -27,8 +27,8 @@ const CODE_MEANING = Object.freeze({
   [FQDNReason.emptyPart]: 'A FQDN may not contain empty parts.',
   [FQDNReason.tooLong]: 'A FQDN may be max 253 characters which each subdomain not exceeding 63 characters.'
 })
-const RCODE = require('dns-packet/rcodes')
-const RCODE_ERROR = {
+const DNS_RCODE = require('dns-packet/rcodes')
+const DNS_RCODE_ERROR = {
   1: 'FormErr',
   2: 'ServFail',
   3: 'NXDomain',
@@ -41,7 +41,7 @@ const RCODE_ERROR = {
   10: 'NotZone',
   11: 'DSOTYPENI'
 }
-const RCODE_MESSAGE = {
+const DNS_RCODE_MESSAGE = {
   // https://www.iana.org/assignments/dns-parameters/dns-parameters.xhtml#dns-parameters-6
   1: 'The name server was unable to interpret the query.',
   2: 'The name server was unable to process this query due to a problem with the name server.',
@@ -55,12 +55,12 @@ const RCODE_MESSAGE = {
   10: 'Name not contained in zone.',
   11: 'DSO-TYPE Not Implemented.'
 }
-class RCodeError extends Error {
+class DNSRCodeError extends Error {
   constructor (rcode, domain) {
-    super(`${(RCODE_MESSAGE[rcode] || 'Undefined error.')} (rcode=${rcode}${RCODE_ERROR[rcode] ? `, error=${RCODE_ERROR[rcode]}` : ''}, domain=${domain})`)
+    super(`${(DNS_RCODE_MESSAGE[rcode] || 'Undefined error.')} (rcode=${rcode}${DNS_RCODE_ERROR[rcode] ? `, error=${DNS_RCODE_ERROR[rcode]}` : ''}, domain=${domain})`)
     this.rcode = rcode
-    this.code = `RCODE_${rcode}`
-    this.error = RCODE_ERROR[rcode]
+    this.code = `DNS_RCODE_${rcode}`
+    this.error = DNS_RCODE_ERROR[rcode]
     this.domain = domain
   }
 }
@@ -80,9 +80,9 @@ function createLookupTXT (baseOptions) {
     }
     return query(q, options)
       .then(data => {
-        const rcode = RCODE.toRcode(data.rcode)
+        const rcode = DNS_RCODE.toRcode(data.rcode)
         if (rcode !== 0) {
-          throw new RCodeError(rcode, domain)
+          throw new DNS_RCodeError(rcode, domain)
         }
         return (data.answers || []).map(answer => ({
           data: combineTXT(answer.data),
@@ -222,26 +222,26 @@ function sortByID (a, b) {
 }
 
 function validateDNSLinkEntry (entry) {
-  const trimmed = entry.substr(TXT_PREFIX.length).trim()
-  if (!trimmed.startsWith('/')) {
+  entry = entry.substr(TXT_PREFIX.length)
+  if (!entry.startsWith('/')) {
     return { error: EntryReason.wrongStart }
   }
   // https://datatracker.ietf.org/doc/html/rfc4343#section-2.1
-  if (!/^[\u0020-\u007e]*$/.test(trimmed)) {
+  if (!/^[\u0020-\u007e]*$/.test(entry)) {
     return { error: EntryReason.invalidCharacter }
   }
-  const parts = trimmed.split('/')
+  const parts = entry.split('/')
   parts.shift()
   let namespace
   if (parts.length !== 0) {
-    namespace = parts.shift().trim()
+    namespace = parts.shift()
   }
   if (!namespace) {
     return { error: EntryReason.namespaceMissing }
   }
   let identifier
   if (parts.length !== 0) {
-    identifier = parts.join('/').trim()
+    identifier = parts.join('/')
   }
   if (!identifier) {
     return { error: EntryReason.noIdentifier }
