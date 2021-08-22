@@ -43,7 +43,7 @@ export interface Options extends TimeoutOptions {
 export const defaultLookupTXT: LookupTXT;
 export function createLookupTXT(options: LookupOptions): LookupTXT;
 export function resolve(domain: string, options?: Options): Promise<Result>;
-export class RCodeError extends Error {
+export class DNSRcodeError extends Error {
   code: string;
   rcode: number;
   error: string;

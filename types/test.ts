@@ -1,11 +1,11 @@
-import { resolve, Options, LogCode, EntryReason, Result, LookupOptions, RCodeError, CODE_MEANING, FQDNReason } from '@dnslink/js';
+import { resolve, Options, LogCode, EntryReason, Result, LookupOptions, DNSRcodeError, CODE_MEANING, FQDNReason } from '@dnslink/js';
 import { AbortController } from '@consento/promise';
 
 const c = new AbortController();
 
 resolve('some.domain').then(next).catch(
   (err: Error) => {
-    if (err instanceof RCodeError) {
+    if (err instanceof DNSRcodeError) {
       // $ExpectType string
       err.code;
       // $ExpectType number

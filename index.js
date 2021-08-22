@@ -55,7 +55,7 @@ const DNS_RCODE_MESSAGE = {
   10: 'Name not contained in zone.',
   11: 'DSO-TYPE Not Implemented.'
 }
-class DNSRCodeError extends Error {
+class DNSRcodeError extends Error {
   constructor (rcode, domain) {
     super(`${(DNS_RCODE_MESSAGE[rcode] || 'Undefined error.')} (rcode=${rcode}${DNS_RCODE_ERROR[rcode] ? `, error=${DNS_RCODE_ERROR[rcode]}` : ''}, domain=${domain})`)
     this.rcode = rcode
@@ -82,7 +82,7 @@ function createLookupTXT (baseOptions) {
       .then(data => {
         const rcode = DNS_RCODE.toRcode(data.rcode)
         if (rcode !== 0) {
-          throw new DNS_RCodeError(rcode, domain)
+          throw new DNSRcodeError(rcode, domain)
         }
         return (data.answers || []).map(answer => ({
           data: combineTXT(answer.data),
@@ -112,7 +112,7 @@ module.exports = Object.freeze({
   resolve: function dnslink (domain, options = {}) {
     return wrapTimeout(async signal => _resolve(domain, { lookupTXT: defaultLookupTXT, ...options, signal }))
   },
-  RCodeError,
+  DNSRcodeError,
   defaultLookupTXT,
   createLookupTXT,
   LogCode,
