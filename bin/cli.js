@@ -172,7 +172,7 @@ module.exports = (command) => {
         out: process.stdout,
         err: process.stderr
       })
-      let lookupTXT
+      let lookupTXT = defaultLookupTXT
       if (options.dns) {
         lookupTXT = createLookupTXT({ endpoints: 'dns' })
       } else if (options.doh) {
@@ -186,7 +186,7 @@ module.exports = (command) => {
       await Promise.all(domains.map(async (domain) => {
         output.write(domain, await resolve(domain, {
           signal,
-          lookupTXT: lookupTXT || defaultLookupTXT
+          lookupTXT
         }))
       }))
       output.end()
