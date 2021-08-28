@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 const { AbortController } = require('@consento/promise')
 const { resolve, createLookupTXT, defaultLookupTXT } = require('../index')
-const { version, homepage } = require('../package.json')
+const { version } = require('../package.json')
 
 const json = input => JSON.stringify(input)
 
@@ -271,7 +271,7 @@ NOTE
     If you specify --dns, --doh and --endpoint will be ignored. If you specify
     --doh then --endpoint will be ignored.
 
-    Read more about dnslink-js here: ${homepage}
+Read more about DNSLink at https://dnslink.dev.
 
 dnslink-js@${version}`)
 }
