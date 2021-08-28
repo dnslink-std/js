@@ -242,7 +242,7 @@ EXAMPLE
     > ${command} -f=json -k=ipfs dnslink.io website.ipfs.io
     [
     {"lookup":"website.ipfs.io","txtEntries:["/ipfs/bafybeiagozluzfopjadeigrjlsmktseozde2xc5prvighob7452imnk76a"],"links":{"ipfs":["bafybeiagozluzfopjadeigrjlsmktseozde2xc5prvighob7452imnk76a"]}}
-    ,{"lookup":"dnslink.io","links":{"ipfs":["QmTgQDr3xNgKBVDVJtyGhopHoxW4EVgpkfbwE4qckxGdyo"]}}
+    ,{"lookup":"dnslink.io","txtEntries":["/ipfs/QmTgQDr3xNgKBVDVJtyGhopHoxW4EVgpkfbwE4qckxGdyo"],"links":{"ipfs":["QmTgQDr3xNgKBVDVJtyGhopHoxW4EVgpkfbwE4qckxGdyo"]}}
     ]
 
     # Receive both the result and log and write the output to files
