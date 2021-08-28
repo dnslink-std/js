@@ -94,67 +94,7 @@ using `npx @dnslink/js`.
 You can get detailed help for the app by passing a `--help` option at the end:
 
 ```
-dnslink - resolve dns links in TXT records
-
-USAGE
-    dnslink [--help] [--format=json|text|csv] [--dns] [--doh] [--debug] \
-        [--ns=<ns>] [--first=<ns>] [--endpoint[=<endpoint>]] \
-        <hostname> [...<hostname>]
-
-EXAMPLE
-    # Receive the dnslink entries for the dnslink.io domain.
-    > dnslink t15.dnslink.dev
-    /ipns/AANO      [ttl=3600]
-
-    # Receive only the ipfs entry as text for dnslink.io
-    > dnslink -k=ipfs dnslink.io
-    bafkreidj5lipga46mwq4wdkrrmarjmppobvtsqssge6o5nhkyvsp6pom3u [ttl=60]
-
-    # Receive only the ipfs entry as text for dnslink.io using DNS
-    > dnslink -k=ipfs --dns dnslink.io
-    bafkreidj5lipga46mwq4wdkrrmarjmppobvtsqssge6o5nhkyvsp6pom3u [ttl=60]
-
-    # Receive only the first ipfs entry as text for dnslink.io using DNS
-    > dnslink --first=ipfs --dns dnslink.io
-    bafkreidj5lipga46mwq4wdkrrmarjmppobvtsqssge6o5nhkyvsp6pom3u [ttl=60]
-
-    # Receive all dnslink entries for multiple domains as csv
-    > dnslink -f=csv dnslink.io ipfs.io
-    lookup,namespace,identifier,ttl
-    "dnslink.io","ipfs","QmTgQDr3xNgKBVDVJtyGhopHoxW4EVgpkfbwE4qckxGdyo",60
-    "ipfs.io","ipns","website.ipfs.io",60
-
-    # Receive ipfs entries for multiple domains as json
-    > dnslink -f=json -k=ipfs dnslink.io website.ipfs.io
-    [
-    {"lookup":"website.ipfs.io","links":{"ipfs":[{"identifier":"bafybeiagozluzfopjadeigrjlsmktseozde2xc5prvighob7452imnk76a","ttl":32}]}}
-    ,{"lookup":"dnslink.io","links":{"ipfs":[{"identifier":"QmTgQDr3xNgKBVDVJtyGhopHoxW4EVgpkfbwE4qckxGdyo","ttl":120}]}}
-    ]
-
-    # Receive both the result and log and write the output to files
-    > dnslink -f=csv -d dnslink.io \
-        >dnslink-io.csv \
-        2>dnslink-io.log.csv
-
-OPTIONS
-    --help, -h            Show this help.
-    --version, -v         Show the version of this command.
-    --format, -f          Output format json, text, reduced or csv (default=text)
-    --dns                 Use one of default dns endpoints.
-    --doh                 Use one of default doh endpoints.
-    --endpoint=<server>   Specify a dns or doh server to use. If more than
-                          one endpoint is specified it will use one of the
-                          specified at random. More about specifying
-                          servers in the dns-query docs: [1]
-    --debug, -d           Render log output to stderr in the specified format.
-    --ns, -n              Only render one particular DNSLink namespace.
-    --first               Only render the first of the defined DNSLink namespace.
-
-    [1]: https://github.com/martinheidegger/dns-query#string-endpoints
-
-NOTE
-    If you specify --dns, --doh and --endpoint will be ignored. If you specify
-    --doh then --endpoint will be ignored.
+$ npx @dnslink/js --help
 ```
 
 ## License
