@@ -40,10 +40,10 @@
     "dns-query": "^0.7.1"
   },
   "devDependencies": {
-    "@dnslink/test": "^0.10.0",
-    "dtslint": "^4.1.2",
+    "@dnslink/test": "^0.11.1",
+    "dtslint": "^4.1.6",
     "fresh-tape": "^5.2.4",
     "standard": "^16.0.3",
-    "typescript": "^4.3.2"
+    "typescript": "^4.4.2"
   }
 }
