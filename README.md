@@ -11,7 +11,7 @@ You can use `dnslink` both as a [CLI tool](#command-line) or a [library](#javasc
 Getting started with DNSLink resolution in a jiffy:
 
 ```javascript
-const { resolve, createLookupTXT, RCodeError } = require('@dnslink/js')
+const { resolve, createLookupTXT, DNSRcodeError } = require('@dnslink/js')
 
 // assumes top-level await
 let result
@@ -19,7 +19,7 @@ try {
   result = await resolve('dnslink.dev/abcd?foo=bar')
 } catch (err) {
   // Errors provided by DNS server
-  if (err instanceof RCodeError) {
+  if (err instanceof DNSRcodeError) {
     err.rcode // Error code number following - https://www.iana.org/assignments/dns-parameters/dns-parameters.xhtml#dns-parameters-6
     err.error // Error code name following (same list)
     err.code // `RCODE_${err.code}
