@@ -137,6 +137,16 @@ const outputs = {
   }
 }
 
+function safeStream (stream, controller) {
+  stream.on('error', () => controller.abort())
+  return {
+    write (data) {
+      if (stream.closed || stream.destroyed || stream.errored) return
+      stream.write(data)
+    }
+  }
+}
+
 module.exports = (command) => {
   ;(async function main () {
     const controller = new AbortController()
@@ -163,14 +173,16 @@ module.exports = (command) => {
       }
       const first = firstEntry(options.first)
       const ns = first || firstEntry(options.ns) || firstEntry(options.n)
+      const out = safeStream(process.stdout, controller)
+      const err = safeStream(process.stderr, controller)
       const output = new OutputClass({
         first,
         ns,
         ttl: !!(options.ttl),
         debug: !!(options.debug || options.d),
         domains,
-        out: process.stdout,
-        err: process.stderr
+        out,
+        err
       })
       let lookupTXT = defaultLookupTXT
       if (options.dns) {
