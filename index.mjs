@@ -1,22 +1,24 @@
-const { Session, DNSRcodeError, AbortError } = require('dns-query')
+import { Session, AbortError } from 'dns-query'
 
-const DNS_PREFIX = '_dnslink.'
-const TXT_PREFIX = 'dnslink='
-const LogCode = Object.freeze({
+export { DNSRcodeError, AbortError } from 'dns-query'
+
+export const DNS_PREFIX = '_dnslink.'
+export const TXT_PREFIX = 'dnslink='
+export const LogCode = Object.freeze({
   fallback: 'FALLBACK',
   invalidEntry: 'INVALID_ENTRY'
 })
-const EntryReason = Object.freeze({
+export const EntryReason = Object.freeze({
   wrongStart: 'WRONG_START',
   namespaceMissing: 'NAMESPACE_MISSING',
   noIdentifier: 'NO_IDENTIFIER',
   invalidCharacter: 'INVALID_CHARACTER'
 })
-const FQDNReason = Object.freeze({
+export const FQDNReason = Object.freeze({
   emptyPart: 'EMPTY_PART',
   tooLong: 'TOO_LONG'
 })
-const CODE_MEANING = Object.freeze({
+export const CODE_MEANING = Object.freeze({
   [LogCode.fallback]: 'Falling back to domain without _dnslink prefix.',
   [LogCode.invalidEntry]: 'Entry misformatted, cant be used.',
   [EntryReason.wrongStart]: 'A DNSLink entry needs to start with a /.',
@@ -27,24 +29,15 @@ const CODE_MEANING = Object.freeze({
   [FQDNReason.tooLong]: 'A FQDN may be max 253 characters which each subdomain not exceeding 63 characters.'
 })
 
-function createLookupTXT (baseOptions) {
+export function createLookupTXT (baseOptions) {
   const session = new Session(baseOptions)
   return (domain, options) => session.lookupTxt(domain, options)
 }
-const defaultLookupTXT = createLookupTXT({})
+export const defaultLookupTXT = createLookupTXT({})
 
-module.exports = Object.freeze({
-  resolve: function dnslink (domain, options = {}) {
-    return _resolve(domain, { lookupTXT: defaultLookupTXT, ...options })
-  },
-  DNSRcodeError,
-  defaultLookupTXT,
-  createLookupTXT,
-  LogCode,
-  EntryReason,
-  FQDNReason,
-  CODE_MEANING
-})
+export function resolve (domain, options = {}) {
+  return _resolve(domain, { lookupTXT: defaultLookupTXT, ...options })
+}
 
 function bubbleAbort (signal) {
   if (signal !== undefined && signal !== null && signal.aborted) {

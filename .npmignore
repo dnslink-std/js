@@ -1,0 +1,5 @@
+.github
+types/test.test
+types/tsconfig.json
+test/integration*
+*.tgz

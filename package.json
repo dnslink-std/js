@@ -3,12 +3,19 @@
   "version": "0.12.0",
   "description": "The reference implementation for DNSLink in JavaScript. Tested in Node.js and in the Browser.",
   "main": "index.js",
-  "types": "./types",
+  "module": "index.mjs",
+  "types": "./types/index.d.ts",
+  "exports": {
+    "require": "./index.js",
+    "import": "./index.mjs",
+    "types": "./types/index.d.ts"
+  },
   "scripts": {
-    "lint": "standard *.js bin/* && dtslint --localTs node_modules/typescript/lib types",
+    "prepare": "esm2umd dnslink",
+    "lint": "standard *.mjs test/*.cjs bin/* && dtslint --localTs node_modules/typescript/lib types",
     "test": "npm run test-doh && npm run test-udp",
-    "test-doh": "dnslink-test -e log -- node test/integration-doh.js",
-    "test-udp": "dnslink-test -e log -- node test/integration-udp.js"
+    "test-doh": "dnslink-test -e log -- node test/integration-doh.cjs",
+    "test-udp": "dnslink-test -e log -- node test/integration-udp.cjs"
   },
   "standard": {
     "ignore": "*.ts",
@@ -36,6 +43,7 @@
   },
   "homepage": "https://github.com/dnslink-std/js#readme",
   "dependencies": {
+    "@leichtgewicht/esm2umd": "^0.4.0",
     "abort-controller": "^3.0.0",
     "dns-query": "^0.10.0"
   },
