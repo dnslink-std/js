@@ -1,7 +1,16 @@
-/// <reference types="node" />
+import {
+  SessionOpts as SessionOptions,
+  QueryOpts as LookupOptions,
+  TxtEntry,
+  TxtResult
+} from 'dns-query';
 
-import { Options as DNSOptions } from 'dns-query';
-import { TimeoutOptions } from '@consento/promise';
+export {
+  SessionOpts as LookupOptions,
+  QueryOpts as ResolveOptions,
+  TxtEntry,
+  TxtResult
+} from 'dns-query';
 
 export enum LogCode {
   fallback = 'FALLBACK',
@@ -30,24 +39,20 @@ export interface FallbackEntry {
   code: LogCode.fallback;
 }
 export type LogEntry = FallbackEntry | InvalidEntry;
+export interface Links {
+  [namespace: string]: Array<{ identifier: string, ttl: number }>;
+}
 export interface Result {
-  txtEntries: Array<{ value: string, ttl: number }>;
-  links: { [namespace: string]: Array<{ identifier: string, ttl: number }>; };
+  txtEntries: TxtEntry[];
+  links: Links;
   log: LogEntry[];
 }
-export type LookupTXT = (domain: string, options: TimeoutOptions) => Promise<Array<{ data: string, ttl: number }>>;
-export type LookupOptions = Omit<DNSOptions, 'signal' | 'timeout'>;
-export interface Options extends TimeoutOptions {
+export type LookupTXT = (domain: string, options: LookupOptions) => Promise<TxtResult>;
+export interface Options extends LookupOptions {
   lookupTXT?: LookupTXT;
 }
 export const defaultLookupTXT: LookupTXT;
-export function createLookupTXT(options: LookupOptions): LookupTXT;
+export function createLookupTXT(options: SessionOptions): LookupTXT;
 export function resolve(domain: string, options?: Options): Promise<Result>;
-export class DNSRcodeError extends Error {
-  code: string;
-  rcode: number;
-  error: string;
-  domain: string;
-}
 
 export {};

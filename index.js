@@ -1,6 +1,7 @@
 const { wrapTimeout } = require('@consento/promise/wrapTimeout')
 const { bubbleAbort } = require('@consento/promise/bubbleAbort')
-const { query } = require('dns-query')
+const { Session, DNSRcodeError } = require('dns-query')
+
 const DNS_PREFIX = '_dnslink.'
 const TXT_PREFIX = 'dnslink='
 const LogCode = Object.freeze({
@@ -27,85 +28,11 @@ const CODE_MEANING = Object.freeze({
   [FQDNReason.emptyPart]: 'A FQDN may not contain empty parts.',
   [FQDNReason.tooLong]: 'A FQDN may be max 253 characters which each subdomain not exceeding 63 characters.'
 })
-const DNS_RCODE = require('dns-packet/rcodes')
-const DNS_RCODE_ERROR = {
-  1: 'FormErr',
-  2: 'ServFail',
-  3: 'NXDomain',
-  4: 'NotImp',
-  5: 'Refused',
-  6: 'YXDomain',
-  7: 'YXRRSet',
-  8: 'NXRRSet',
-  9: 'NotAuth',
-  10: 'NotZone',
-  11: 'DSOTYPENI'
-}
-const DNS_RCODE_MESSAGE = {
-  // https://www.iana.org/assignments/dns-parameters/dns-parameters.xhtml#dns-parameters-6
-  1: 'The name server was unable to interpret the query.',
-  2: 'The name server was unable to process this query due to a problem with the name server.',
-  3: 'Non-Existent Domain.',
-  4: 'The name server does not support the requested kind of query.',
-  5: 'The name server refuses to perform the specified operation for policy reasons.',
-  6: 'Name Exists when it should not.',
-  7: 'RR Set Exists when it should not.',
-  8: 'RR Set that should exist does not.',
-  9: 'Server Not Authoritative for zone  / Not Authorized.',
-  10: 'Name not contained in zone.',
-  11: 'DSO-TYPE Not Implemented.'
-}
-class DNSRcodeError extends Error {
-  constructor (rcode, domain) {
-    super(`${(DNS_RCODE_MESSAGE[rcode] || 'Undefined error.')} (rcode=${rcode}${DNS_RCODE_ERROR[rcode] ? `, error=${DNS_RCODE_ERROR[rcode]}` : ''}, domain=${domain})`)
-    this.rcode = rcode
-    this.code = `DNS_RCODE_${rcode}`
-    this.error = DNS_RCODE_ERROR[rcode]
-    this.domain = domain
-  }
-}
 
 function createLookupTXT (baseOptions) {
-  return (domain, options = {}) => {
-    const q = {
-      questions: [{
-        type: 'TXT',
-        name: domain
-      }]
-    }
-    options = {
-      ...baseOptions,
-      signal: options.signal,
-      timeout: options.timeout || 7500
-    }
-    return query(q, options)
-      .then(data => {
-        const rcode = DNS_RCODE.toRcode(data.rcode)
-        if (rcode !== 0) {
-          throw new DNSRcodeError(rcode, domain)
-        }
-        return (data.answers || []).map(answer => ({
-          data: combineTXT(answer.data),
-          ttl: answer.ttl
-        }))
-      })
-  }
+  const session = new Session(baseOptions)
+  return (domain, options) => session.lookupTxt(domain, options)
 }
-
-const decoder = new TextDecoder()
-function combineTXT (inputs) {
-  let string = ''
-  for (const input of inputs) {
-    if (input instanceof Uint8Array) {
-      string += decoder.decode(input, { stream: true })
-    } else {
-      string += input
-    }
-  }
-  string += decoder.decode()
-  return string
-}
-
 const defaultLookupTXT = createLookupTXT({})
 
 module.exports = Object.freeze({
@@ -147,7 +74,7 @@ async function _resolve (domain, options) {
     useFallback = true
     data = fallbackResult.result
   }
-  const result = processEntries(data)
+  const result = processEntries(data.entries)
   if (useFallback) {
     result.log.unshift({ code: LogCode.fallback })
   }
