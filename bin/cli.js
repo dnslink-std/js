@@ -1,6 +1,6 @@
 #!/usr/bin/env node
-const { AbortController } = require('@consento/promise')
-const { resolve, createLookupTXT, defaultLookupTXT } = require('../index')
+const { AbortController } = require('abort-controller')
+const { resolve, createLookupTXT, defaultLookupTXT } = require('../index.js')
 const { version } = require('../package.json')
 
 const json = input => JSON.stringify(input)

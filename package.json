@@ -36,7 +36,7 @@
   },
   "homepage": "https://github.com/dnslink-std/js#readme",
   "dependencies": {
-    "@consento/promise": "^1.0.7",
+    "abort-controller": "^3.0.0",
     "dns-query": "^0.10.0"
   },
   "devDependencies": {

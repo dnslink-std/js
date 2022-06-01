@@ -1,6 +1,4 @@
-const { wrapTimeout } = require('@consento/promise/wrapTimeout')
-const { bubbleAbort } = require('@consento/promise/bubbleAbort')
-const { Session, DNSRcodeError } = require('dns-query')
+const { Session, DNSRcodeError, AbortError } = require('dns-query')
 
 const DNS_PREFIX = '_dnslink.'
 const TXT_PREFIX = 'dnslink='
@@ -37,7 +35,7 @@ const defaultLookupTXT = createLookupTXT({})
 
 module.exports = Object.freeze({
   resolve: function dnslink (domain, options = {}) {
-    return wrapTimeout(async signal => _resolve(domain, { lookupTXT: defaultLookupTXT, ...options, signal }))
+    return _resolve(domain, { lookupTXT: defaultLookupTXT, ...options })
   },
   DNSRcodeError,
   defaultLookupTXT,
@@ -47,6 +45,12 @@ module.exports = Object.freeze({
   FQDNReason,
   CODE_MEANING
 })
+
+function bubbleAbort (signal) {
+  if (signal !== undefined && signal !== null && signal.aborted) {
+    throw new AbortError()
+  }
+}
 
 async function _resolve (domain, options) {
   domain = validateDomain(domain)
