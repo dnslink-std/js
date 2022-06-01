@@ -1,5 +1,4 @@
 import { resolve, Options, LogCode, EntryReason, Result, LookupOptions, CODE_MEANING, FQDNReason, createLookupTXT } from '@dnslink/js';
-import { AbortController } from 'abort-controller';
 
 const c = new AbortController();
 
