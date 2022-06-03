@@ -185,7 +185,7 @@ module.exports = (command) => {
         out,
         err
       })
-      let endpoints = (options.endpoint || []).filter(endpoint => endpoint !== true)
+      let endpoints = (options.endpoint || []).concat(options.e || []).filter(endpoint => endpoint !== true)
       if (endpoints.length === 0) {
         endpoints = dns.getServers().map(ip => `udp://${ip}`)
       }
@@ -262,8 +262,8 @@ OPTIONS
     --version, -v         Show the version of this command.
     --format, -f          Output format json, text or csv (default=text)
     --ttl                 Include ttl in output (any format)
-    --endpoint=<server>   Specify a dns or doh server to use. If more than
-                          one endpoint is specified it will use one of the
+    --endpoint=<server>,  Specify a dns or doh server to use. If more than
+      -e=<server>         one endpoint is specified it will use one of the
                           specified at random. More about specifying
                           servers in the dns-query docs: [1]
     --debug, -d           Render log output to stderr in the specified format.
