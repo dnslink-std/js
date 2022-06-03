@@ -122,7 +122,6 @@ function processEntries (input) {
     }
   }
   const txtEntries = []
-  // TODO: when removing the trimming of entries, the sorting logic can be simplified
   for (const ns of Object.keys(links).sort()) {
     const linksByNS = links[ns].sort(sortByID)
     for (const { identifier, ttl } of linksByNS) {
