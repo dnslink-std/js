@@ -47,7 +47,7 @@
   "dependencies": {
     "@leichtgewicht/esm2umd": "^0.4.0",
     "abort-controller": "^3.0.0",
-    "dns-query": "^0.10.1"
+    "dns-query": "^0.11.1"
   },
   "devDependencies": {
     "@definitelytyped/dtslint": "^0.0.112",

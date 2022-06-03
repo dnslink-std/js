@@ -1,4 +1,4 @@
-import { Session, AbortError } from 'dns-query'
+import { lookupTxt, AbortError } from 'dns-query'
 
 export { DNSRcodeError, AbortError } from 'dns-query'
 
@@ -29,14 +29,8 @@ export const CODE_MEANING = Object.freeze({
   [FQDNReason.tooLong]: 'A FQDN may be max 253 characters which each subdomain not exceeding 63 characters.'
 })
 
-export function createLookupTXT (baseOptions) {
-  const session = new Session(baseOptions)
-  return (domain, options) => session.lookupTxt(domain, options)
-}
-export const defaultLookupTXT = createLookupTXT({})
-
 export function resolve (domain, options = {}) {
-  return _resolve(domain, { lookupTXT: defaultLookupTXT, ...options })
+  return _resolve(domain, options)
 }
 
 function bubbleAbort (signal) {
@@ -49,8 +43,8 @@ async function _resolve (domain, options) {
   domain = validateDomain(domain)
   let fallbackResult = null
   let useFallback = false
-  const defaultResolve = options.lookupTXT(`${DNS_PREFIX}${domain}`, options)
-  const fallbackResolve = options.lookupTXT(domain, options).then(
+  const defaultResolve = lookupTxt(`${DNS_PREFIX}${domain}`, options)
+  const fallbackResolve = lookupTxt(domain, options).then(
     result => { fallbackResult = { result } },
     error => { fallbackResult = { error } }
   )

@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 
-const { resolve, createLookupTXT } = require('../index.js')
+const { resolve } = require('../index.js')
 const { doh: port } = JSON.parse(process.argv[3])
 
 resolve(process.argv[2], {
-  lookupTXT: createLookupTXT({ endpoints: [`http://0.0.0.0:${port}/dns-query`] })
+  endpoints: [`http://0.0.0.0:${port}/dns-query`]
 }).then(
   result => console.log(JSON.stringify(result)),
   error => console.log(JSON.stringify({

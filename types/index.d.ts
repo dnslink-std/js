@@ -1,15 +1,13 @@
 import {
-  SessionOpts as SessionOptions,
-  QueryOpts as LookupOptions,
-  TxtEntry,
-  TxtResult
+  QueryOpts,
+  TxtEntry
 } from 'dns-query';
 
 export {
-  SessionOpts as LookupOptions,
-  QueryOpts as ResolveOptions,
+  QueryOpts,
   TxtEntry,
-  TxtResult
+  TxtResult,
+  EndpointsInput,
 } from 'dns-query';
 
 export enum LogCode {
@@ -47,12 +45,6 @@ export interface Result {
   links: Links;
   log: LogEntry[];
 }
-export type LookupTXT = (domain: string, options: LookupOptions) => Promise<TxtResult>;
-export interface Options extends LookupOptions {
-  lookupTXT?: LookupTXT;
-}
-export const defaultLookupTXT: LookupTXT;
-export function createLookupTXT(options: SessionOptions): LookupTXT;
-export function resolve(domain: string, options?: Options): Promise<Result>;
+export function resolve(domain: string, options?: QueryOpts): Promise<Result>;
 
 export {};

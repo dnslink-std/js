@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 const { AbortController } = require('abort-controller')
-const { resolve, createLookupTXT, defaultLookupTXT } = require('../index.js')
+const { resolve } = require('../index.js')
 const { version } = require('../package.json')
+const dns = require('dns')
 
 const json = input => JSON.stringify(input)
 
@@ -184,21 +185,14 @@ module.exports = (command) => {
         out,
         err
       })
-      let lookupTXT = defaultLookupTXT
-      if (options.dns) {
-        lookupTXT = createLookupTXT({ endpoints: 'dns' })
-      } else if (options.doh) {
-        lookupTXT = createLookupTXT({ endpoints: 'doh' })
-      } else {
-        const endpoints = (options.endpoint || []).filter(endpoint => endpoint !== true)
-        if (endpoints.length > 0) {
-          lookupTXT = createLookupTXT({ endpoints })
-        }
+      let endpoints = (options.endpoint || []).filter(endpoint => endpoint !== true)
+      if (endpoints.length === 0) {
+        endpoints = dns.getServers().map(ip => `udp://${ip}`)
       }
       await Promise.all(domains.map(async (domain) => {
         output.write(domain, await resolve(domain, {
-          signal,
-          lookupTXT
+          endpoints,
+          signal
         }))
       }))
       output.end()
@@ -223,7 +217,7 @@ function showHelp (command) {
   console.log(`${command} - resolve dns links in TXT records
 
 USAGE
-    ${command} [--help] [--format=json|text|csv] [--dns] [--doh] [--debug] \\
+    ${command} [--help] [--format=json|text|csv] [--debug] \\
         [--ns=<ns>] [--first=<ns>] [--endpoint[=<endpoint>]] \\
         <hostname> [...<hostname>]
 
@@ -244,9 +238,6 @@ EXAMPLE
     > ${command} --ttl dnslink.dev
     /ipfs/QmXNosdfz3WQUHncsYBTw7diwYzCibVhrJmEhNNaMPQBQF  [ttl=53]
 
-    # Receive the dnslink entries using the system DNS.
-    > ${command} --dns dnslink.dev
-    /ipfs/QmXNosdfz3WQUHncsYBTw7diwYzCibVhrJmEhNNaMPQBQF
 
     # Receive all dnslink entries for multiple domains as csv.
     > ${command} --format=csv dnslink.dev ipfs.io
@@ -271,8 +262,6 @@ OPTIONS
     --version, -v         Show the version of this command.
     --format, -f          Output format json, text or csv (default=text)
     --ttl                 Include ttl in output (any format)
-    --dns                 Use one of default dns endpoints.
-    --doh                 Use one of default doh endpoints.
     --endpoint=<server>   Specify a dns or doh server to use. If more than
                           one endpoint is specified it will use one of the
                           specified at random. More about specifying
@@ -284,8 +273,7 @@ OPTIONS
     [1]: https://github.com/martinheidegger/dns-query#string-endpoints
 
 NOTE
-    If you specify --dns, --doh and --endpoint will be ignored. If you specify
-    --doh then --endpoint will be ignored.
+    If you don't specify any endpoints, te systems DNS server will be used.
 
 Read more about DNSLink at https://dnslink.dev.
 

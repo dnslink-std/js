@@ -1,4 +1,4 @@
-import { resolve, Options, LogCode, EntryReason, Result, LookupOptions, CODE_MEANING, FQDNReason, createLookupTXT } from '@dnslink/js';
+import { resolve, LogCode, EntryReason, Result, CODE_MEANING, FQDNReason, QueryOpts } from '@dnslink/js';
 
 const c = new AbortController();
 
@@ -17,28 +17,8 @@ resolve('domain.com').then(({ links, log }: Result) => {
     }
   }
 });
-createLookupTXT({
-  update: false
-})('domain.com', {
-  timeout: 5000
-}).then(({ entries }) => {
-  console.log(entries[0].data);
-});
 
-let o: Options = {};
+let o: QueryOpts = {};
 o = { signal: c.signal };
-o = { timeout: 1000 };
-
-let lo: LookupOptions = {};
-lo = {
-  retries: 5
-};
-lo = {
-  endpoints: 'doh'
-};
-lo = {
-  endpoints: 'dns'
-};
-lo = {
-  endpoints: ['udp://1.1.1.1']
-};
+o = { timeout: 1000,  };
+o = { endpoints: ['dns.google'] };

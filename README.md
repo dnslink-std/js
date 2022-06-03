@@ -11,12 +11,18 @@ You can use `dnslink` both as a [CLI tool](#command-line) or a [library](#javasc
 Getting started with DNSLink resolution in a jiffy:
 
 ```javascript
-const { resolve, createLookupTXT, DNSRcodeError } = require('@dnslink/js')
+import { resolve, DNSRcodeError } from '@dnslink/js'
 
 // assumes top-level await
 let result
 try {
-  result = await resolve('dnslink.dev/abcd?foo=bar')
+  result = await resolve('dnslink.dev/abcd?foo=bar', {
+    endpoints: ['dns.google'], // required! see more below.
+    /* (optional) */
+    signal, // AbortSignal that you can use to abort the request
+    timeout: 1000, // timeout for the operation
+    retries: 3 // retries in case of transport error
+  })
 } catch (err) {
   // Errors provided by DNS server
   if (err instanceof DNSRcodeError) {
@@ -50,26 +56,11 @@ Array.isArray(log)
 txtEntries === [{ value: '/ipfs/QmTg....yomU', ttl: 60 }]
 ```
 
-You can also pass a set of options: 
+### Endpoints
 
-```javascript
-let endpoints // custom endpoints
-endpoints = 'dns' // Use the system default dns servers to resolve (Node.js only!)
-endpoints = [`udp://1.1.1.1`] // DNS server endpoint
-endpoints = 'doh' // Use any of the given default https://github.com/martinheidegger/doh-query/blob/main/endpoints.md
-endpoints = ['google'] // Use the "google" endpoint of above list ↑
-endpoints = ['https://cloudflare-dns.com/dns-query'] // Use a custom DoH endpoin
-// More about ↑ here: https://github.com/martinheidegger/dns-query#string-endpoints
+You **need** to specify endpoints to be used with the API. You can specify them the same way as you would in [`dns-query`](https://github.com/martinheidegger/dns-query#endpoints).
 
-await resolve('dnslink.dev', {
-  signal, // AbortSignal that you can use to abort the request
-  timeout: 1000, // (optional) timeout for the operation
-  lookupTXT: /* (optional) */ createLookupTXT(
-    retries: 3, // (optional, default=5)
-    endpoints // (optional, defaults )
-  )
-})
-```
+
 
 ## Possible log statements
 
