@@ -22,8 +22,8 @@ export const CODE_MEANING = Object.freeze({
   [LogCode.fallback]: 'Falling back to domain without _dnslink prefix.',
   [LogCode.invalidEntry]: 'Entry misformatted, cant be used.',
   [EntryReason.wrongStart]: 'A DNSLink entry needs to start with a /.',
-  [EntryReason.namespaceMissing]: 'A DNSLink entry needs to have a namespace, like: dnslink=/namespace/identifier.',
-  [EntryReason.noIdentifier]: 'An DNSLink entry needs to have an identifier, like: dnslink=/namespace/identifier.',
+  [EntryReason.namespaceMissing]: 'A DNSLink entry needs to have a namespace, like: dnslink=/namespace/...',
+  [EntryReason.noIdentifier]: 'A DNSLink entry needs to have an identifier, like: dnslink=/namespace/identifier',
   [EntryReason.invalidCharacter]: 'A DNSLink entry may only contain ascii characters.',
   [FQDNReason.emptyPart]: 'A FQDN may not contain empty parts.',
   [FQDNReason.tooLong]: 'A FQDN may be max 253 characters which each subdomain not exceeding 63 characters.'

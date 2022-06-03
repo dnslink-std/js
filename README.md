@@ -58,22 +58,14 @@ txtEntries === [{ value: '/ipfs/QmTg....yomU', ttl: 60 }]
 
 ### Endpoints
 
-You **need** to specify endpoints to be used with the API. You can specify them the same way as you would in [`dns-query`](https://github.com/martinheidegger/dns-query#endpoints).
-
-
+You **need** to specify endpoints to be used with the API. You can specify them the same way
+as you would in [`dns-query`](https://github.com/martinheidegger/dns-query#endpoints).
 
 ## Possible log statements
 
-The statements contained in the `log` are all objects. They may be helpful to figure out why dnslink
-is not behaving like you expect. Every statement contains the `.code` property that holds the `.code`
-property to understand what happened.
-Depending on the warnings code the errors may have additional `.entry` property that holds
-the problematic TXT entry. A `.reason` property may contain an additional reason for that error to occur.
+The log statements follow the [DNSLink specification][log-codes].
 
-| `.code`                  | Meaning                                                                       | Additional properties |
-|--------------------------|-------------------------------------------------------------------------------|-----------------------|
-| FALLBACK                 | No `_dnslink.` prefixed domain was found. Falling back to the regular domain. |                       |
-| INVALID_ENTRY            | A TXT entry with `dnslink=` prefix has formatting errors.                     | `.entry`, `.reason`   |
+[log-codes]: https://github.com/dnslink-std/test/blob/main/LOG_CODES.md
 
 ## Command Line
 
